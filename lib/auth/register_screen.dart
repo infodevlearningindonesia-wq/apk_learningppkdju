@@ -209,7 +209,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _required(String? value, String label) {
     return value == null || value.trim().isEmpty ? '$label wajib diisi' : null;
   }
-
   Future<List<User>> _loadUsers() => DatabaseHelper.instance.getUsers();
 
   Future<void> _reloadUsers() async {
