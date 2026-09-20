@@ -6,7 +6,7 @@ class User {
     required this.phone,
     required this.password,
     required this.city,
-    this.photoPath,
+    this.createdAt,
   });
 
   final int? id;
@@ -15,32 +15,29 @@ class User {
   final String phone;
   final String password;
   final String city;
-  final String? photoPath;
+  final String? createdAt;
 
-  Map<String, Object?> toMap() {
-    final map = <String, Object?>{
+  Map<String, dynamic> toMap() {
+    return {
+      if (id != null) 'id': id,
       'name': name,
       'email': email,
       'phone': phone,
       'password': password,
       'city': city,
+      'created_at': createdAt ?? DateTime.now().toIso8601String(),
     };
-    if (photoPath != null) map['photo_path'] = photoPath;
-    if (id != null) map['id'] = id;
-    return map;
   }
 
-  factory User.fromMap(Map<String, Object?> map) {
+  factory User.fromMap(Map<String, dynamic> map) {
     return User(
       id: map['id'] as int?,
-      name: map['name'] as String,
-      email: map['email'] as String,
-      phone: (map['phone'] as String?) ?? '',
-      password: map['password'] as String,
-      city: map['city'] as String,
-        photoPath: (map['photo_path'] as String?)?.isEmpty == true
-          ? null
-          : map['photo_path'] as String?,
+      name: map['name'] as String? ?? '',
+      email: map['email'] as String? ?? '',
+      phone: map['phone'] as String? ?? '',
+      password: map['password'] as String? ?? '',
+      city: map['city'] as String? ?? '',
+      createdAt: map['created_at'] as String?,
     );
   }
 }

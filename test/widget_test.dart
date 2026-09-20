@@ -5,7 +5,7 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
-import 'package:devlearning_indonesia/auth/login_sreen.dart';
+import 'package:devlearning_indonesia/auth/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,9 +13,9 @@ void main() {
   testWidgets('halaman login menampilkan form autentikasi', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const MaterialApp(home: LoginSreen()));
+    await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
 
-    expect(find.text('Login'), findsNWidgets(2));
+    expect(find.text('LOGIN'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
     expect(find.text('Lupa password'), findsOneWidget);

@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-
-import '../database/database_helper.dart';
-import '../models/user.dart';
-import '../services/preference_handler.dart';
-import 'confirmation_screen.dart';
+import 'package:devlearning_indonesia/auth/confirmation_screen.dart';
+import 'package:devlearning_indonesia/database/database_helper.dart';
+import 'package:devlearning_indonesia/models/user.dart';
+import 'package:sqflite/sqflite.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key, this.user});
-
-  final User? user;
+  const RegisterScreen({super.key});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -21,22 +18,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _cityController = TextEditingController();
+  late Future<List<User>> _usersFuture;
   bool _obscurePassword = true;
   bool _isSaving = false;
-
-  bool get _isEditing => widget.user != null;
 
   @override
   void initState() {
     super.initState();
-    final user = widget.user;
-    if (user != null) {
-      _nameController.text = user.name;
-      _emailController.text = user.email;
-      _phoneController.text = user.phone;
-      _passwordController.text = user.password;
-      _cityController.text = user.city;
-    }
+    _usersFuture = _loadUsers();
   }
 
   @override
@@ -49,256 +38,308 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isSaving = true);
-    final user = User(
-      name: _nameController.text.trim(),
-      email: _emailController.text.trim(),
-      phone: _phoneController.text.trim(),
-      password: _passwordController.text,
-      city: _cityController.text.trim(),
-    );
-
-    try {
-      if (_isEditing) {
-        await DatabaseHelper.instance.updateUser(
-          User(
-            id: widget.user!.id,
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            password: user.password,
-            city: user.city,
-            photoPath: widget.user!.photoPath,
-          ),
-        );
-        await PreferenceHandler.setCurrentEmail(user.email);
-      } else {
-        await DatabaseHelper.instance.insertUser(user);
-      }
-      if (!mounted) return;
-      setState(() => _isSaving = false);
-      if (_isEditing) {
-        Navigator.of(context).pop(true);
-      } else {
-        await _showSummary(user);
-      }
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Pendaftaran gagal: $error')),
-      );
-    }
-  }
-
-  Future<void> _showSummary(User user) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Ringkasan Pendaftaran'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SummaryRow(label: 'Nama', value: user.name),
-              _SummaryRow(label: 'Email', value: user.email),
-              _SummaryRow(
-                label: 'Nomor HP',
-                value: user.phone.isEmpty ? '-' : user.phone,
-              ),
-              _SummaryRow(label: 'Kota', value: user.city),
-            ],
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ConfirmationScreen(
-                      name: user.name,
-                      city: user.city,
-                    ),
-                  ),
-                );
-              },
-              child: const Text('Lanjut'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Peserta' : 'Pendaftaran Peserta'),
+        title: const Text('Daftar Akun'),
+        actions: [
+          IconButton(
+            tooltip: 'Muat ulang peserta',
+            onPressed: _reloadUsers,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            const Text(
-              'Lengkapi data diri Anda',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Data akan disimpan di perangkat untuk daftar peserta.',
-              style: TextStyle(color: Colors.grey.shade700),
-            ),
-            const SizedBox(height: 24),
-            _label('Nama Lengkap'),
-            _field(
-              controller: _nameController,
-              hint: 'Masukkan nama lengkap',
-              icon: Icons.person_outline,
-              validator: (value) => _required(value, 'Nama lengkap'),
-            ),
-            const SizedBox(height: 14),
-            _label('Email'),
-            _field(
-              controller: _emailController,
-              hint: 'nama@email.com',
-              icon: Icons.email_outlined,
-              keyboardType: TextInputType.emailAddress,
-              validator: (value) {
-                final requiredError = _required(value, 'Email');
-                if (requiredError != null) return requiredError;
-                if (!value!.contains('@')) return 'Email harus mengandung @';
-                return null;
-              },
-            ),
-            const SizedBox(height: 14),
-            _label('Nomor HP (opsional)'),
-            _field(
-              controller: _phoneController,
-              hint: '08xxxxxxxxxx',
-              icon: Icons.phone_outlined,
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 14),
-            _label('Password'),
-            _field(
-              controller: _passwordController,
-              hint: 'Minimal 6 karakter',
-              icon: Icons.lock_outline,
-              obscureText: _obscurePassword,
-              suffixIcon: IconButton(
-                onPressed: () => setState(
-                  () => _obscurePassword = !_obscurePassword,
-                ),
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
+      body: RefreshIndicator(
+        onRefresh: _reloadUsers,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Buat akun baru',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Data pendaftaran disimpan di perangkat.',
+                style: TextStyle(color: Color(0xFF68736F)),
+              ),
+              const SizedBox(height: 24),
+              _field(
+                _nameController,
+                'Nama',
+                Icons.person_outline_rounded,
+                validator: (value) => _required(value, 'Nama'),
+              ),
+              const SizedBox(height: 12),
+              _field(
+                _emailController,
+                'Email',
+                Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Email wajib diisi';
+                  }
+                  if (!value.contains('@')) return 'Masukkan email yang valid';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              _field(
+                _phoneController,
+                'Nomor HP',
+                Icons.phone_outlined,
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Nomor HP wajib diisi';
+                  }
+                  if (value.trim().length < 10) {
+                    return 'Nomor HP minimal 10 karakter';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              _field(
+                _passwordController,
+                'Password',
+                Icons.lock_outline_rounded,
+                obscureText: _obscurePassword,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Password wajib diisi';
+                  }
+                  if (value.length < 6) return 'Password minimal 6 karakter';
+                  return null;
+                },
+                suffixIcon: IconButton(
+                  tooltip: _obscurePassword
+                      ? 'Tampilkan password'
+                      : 'Sembunyikan password',
+                  onPressed: () =>
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      }),
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
                 ),
               ),
-              validator: (value) {
-                final requiredError = _required(value, 'Password');
-                if (requiredError != null) return requiredError;
-                if (value!.length < 6) return 'Password minimal 6 karakter';
-                return null;
-              },
-            ),
-            const SizedBox(height: 14),
-            _label('Asal Kota'),
-            _field(
-              controller: _cityController,
-              hint: 'Contoh: Bandung',
-              icon: Icons.location_on_outlined,
-              validator: (value) => _required(value, 'Asal kota'),
-            ),
-            const SizedBox(height: 28),
-            SizedBox(
-              height: 48,
-              child: FilledButton.icon(
-                onPressed: _isSaving ? null : _register,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.person_add_alt_1),
-                label: Text(
-                  _isSaving
-                      ? 'Menyimpan...'
-                      : (_isEditing ? 'Simpan Perubahan' : 'Daftar'),
+              const SizedBox(height: 12),
+              _field(
+                _cityController,
+                'Asal Kota',
+                Icons.location_city_outlined,
+                validator: (value) => _required(value, 'Asal kota'),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _isSaving ? null : _saveUser,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF126B5B),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: _isSaving
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Daftar',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 28),
+              const Text(
+                'Peserta terdaftar',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 10),
+              _buildUsersList(),
+            ],
+          ),
+          ),
         ),
       ),
     );
   }
 
-  String? _required(String? value, String field) {
-    if (value == null || value.trim().isEmpty) return '$field wajib diisi';
-    return null;
-  }
-
-  Widget _label(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
-    );
-  }
-
-  Widget _field({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    String? Function(String?)? validator,
+  Widget _field(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
     TextInputType? keyboardType,
     bool obscureText = false,
+    String? Function(String?)? validator,
     Widget? suffixIcon,
   }) {
     return TextFormField(
       controller: controller,
-      validator: validator,
       keyboardType: keyboardType,
       obscureText: obscureText,
+      validator: validator,
       decoration: InputDecoration(
-        hintText: hint,
+        labelText: label,
         prefixIcon: Icon(icon),
         suffixIcon: suffixIcon,
-        border: const OutlineInputBorder(),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFF126B5B)),
+        ),
       ),
     );
   }
-}
 
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.label, required this.value});
+  String? _required(String? value, String label) {
+    return value == null || value.trim().isEmpty ? '$label wajib diisi' : null;
+  }
 
-  final String label;
-  final String value;
+  Future<List<User>> _loadUsers() => DatabaseHelper.instance.getUsers();
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: RichText(
-        text: TextSpan(
-          style: DefaultTextStyle.of(context).style,
-          children: [
-            TextSpan(
-              text: '$label: ',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            TextSpan(text: value),
-          ],
+  Future<void> _reloadUsers() async {
+    if (!mounted) return;
+
+    final usersFuture = _loadUsers();
+    setState(() {
+      _usersFuture = usersFuture;
+    });
+    await usersFuture;
+  }
+
+  Future<void> _saveUser() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() {
+      _isSaving = true;
+    });
+
+    final name = _nameController.text.trim();
+    final city = _cityController.text.trim();
+
+    try {
+      await DatabaseHelper.instance.insertUser(
+        User(
+          name: name,
+          email: _emailController.text.trim().toLowerCase(),
+          phone: _phoneController.text.trim(),
+          password: _passwordController.text,
+          city: city,
         ),
+      );
+      _nameController.clear();
+      _emailController.clear();
+      _phoneController.clear();
+      _passwordController.clear();
+      _cityController.clear();
+      await _reloadUsers();
+      if (!mounted) return;
+
+      await _showRegistrationDetail(name: name, city: city);
+      if (!mounted) return;
+
+      await Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ConfirmationScreen(name: name, city: city),
+        ),
+      );
+    } on DatabaseException catch (error) {
+      if (mounted) {
+        final errorMessage = error.toString().toUpperCase();
+        final message = errorMessage.contains('UNIQUE')
+            ? 'Email sudah terdaftar'
+            : 'Gagal menyimpan data: ${error.toString()}';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _showRegistrationDetail({
+    required String name,
+    required String city,
+  }) => showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      title: const Text('Detail pendaftaran'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Nama: $name'),
+          const SizedBox(height: 8),
+          Text('Asal kota: $city'),
+        ],
       ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Lanjutkan'),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildUsersList() {
+    return FutureBuilder<List<User>>(
+      future: _usersFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) return const Text('Gagal memuat data peserta.');
+        final users = snapshot.data ?? [];
+        if (users.isEmpty) {
+          return const Text(
+            'Belum ada peserta terdaftar.',
+            style: TextStyle(color: Color(0xFF68736F)),
+          );
+        }
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: const CircleAvatar(
+                  child: Icon(Icons.person_outline_rounded),
+                ),
+                title: Text(
+                  user.name,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text('${user.email}\n${user.phone} - ${user.city}'),
+                isThreeLine: true,
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

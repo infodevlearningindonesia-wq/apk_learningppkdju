@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'login_sreen.dart';
-
 class ConfirmationScreen extends StatelessWidget {
   const ConfirmationScreen({
     super.key,
@@ -15,28 +13,44 @@ class ConfirmationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Konfirmasi Pendaftaran')),
+      appBar: AppBar(title: const Text('Pendaftaran berhasil')),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.check_circle, size: 76, color: Color(0xFF78C943)),
+              const Icon(
+                Icons.check_circle_rounded,
+                size: 80,
+                color: Color(0xFF3F7D27),
+              ),
               const SizedBox(height: 24),
               Text(
-                'Terima kasih, $name dari $city telah mendaftar.',
+                'Selamat, $name!',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Peserta dari $city telah berhasil terdaftar.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Color(0xFF68736F),
+                ),
               ),
               const SizedBox(height: 32),
-              FilledButton.icon(
-                onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginSreen()),
-                  (route) => false,
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Oke'),
                 ),
-                icon: const Icon(Icons.login),
-                label: const Text('Kembali ke Login'),
               ),
             ],
           ),

@@ -1,195 +1,139 @@
-import 'dart:io';
-
 import 'package:path/path.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-
-import '../models/attendance.dart';
-import '../models/user.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:devlearning_indonesia/models/user.dart';
 
 class DatabaseHelper {
-  DatabaseHelper._internal();
+  DatabaseHelper._();
 
-  static final DatabaseHelper instance = DatabaseHelper._internal();
+  static final DatabaseHelper instance = DatabaseHelper._();
   static const _databaseName = 'devlearning.db';
-  static const _databaseVersion = 5;
-  static bool _factoryInitialized = false;
+  static const _databaseVersion = 4;
+  static const usersTable = 'users';
 
   Database? _database;
 
-  static Future<void> init() async {
-    if (_factoryInitialized) return;
-
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
-    }
-    _factoryInitialized = true;
-  }
-
   Future<Database> get database async {
-    await init();
     if (_database != null) return _database!;
-    _database = await _openDatabase();
+
+    final databasePath = await getDatabasesPath();
+    _database = await openDatabase(
+      join(databasePath, _databaseName),
+      version: _databaseVersion,
+      onCreate: (database, version) async {
+        await database.execute('''
+          CREATE TABLE $usersTable (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            phone TEXT NOT NULL,
+            password TEXT NOT NULL,
+            city TEXT NOT NULL,
+            created_at TEXT NOT NULL
+          )
+        ''');
+      },
+      onUpgrade: (database, oldVersion, newVersion) async {
+        if (oldVersion < 4) await _ensureUserColumns(database);
+      },
+    );
+
     return _database!;
   }
 
-  Future<Database> _openDatabase() async {
-    final databasesPath = await getDatabasesPath();
-    final path = join(databasesPath, _databaseName);
-
-    return openDatabase(
-      path,
-      version: _databaseVersion,
-      onCreate: (database, version) => _ensureTables(database),
-      onUpgrade: (database, oldVersion, newVersion) =>
-          _ensureTables(database),
-      onOpen: _ensureTables,
-    );
-  }
-
-  Future<void> _ensureTables(Database database) async {
-    await _ensureUsersTable(database);
-    await _ensureAttendanceTable(database);
-  }
-
-  Future<void> _ensureUsersTable(Database database) async {
-    await database.execute('''
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL DEFAULT '',
-        email TEXT NOT NULL DEFAULT '',
-        phone TEXT NOT NULL DEFAULT '',
-        password TEXT NOT NULL DEFAULT '',
-        city TEXT NOT NULL DEFAULT '',
-        photo_path TEXT NOT NULL DEFAULT ''
-      )
-    ''');
-
-    final columns = await database.rawQuery('PRAGMA table_info(users)');
+  static Future<void> _ensureUserColumns(Database database) async {
+    final columns = await database.rawQuery('PRAGMA table_info($usersTable)');
     final existingColumns = columns
         .map((column) => column['name'] as String)
         .toSet();
-    const requiredColumns = {
-      'name': "TEXT NOT NULL DEFAULT ''",
-      'email': "TEXT NOT NULL DEFAULT ''",
-      'phone': "TEXT NOT NULL DEFAULT ''",
-      'password': "TEXT NOT NULL DEFAULT ''",
-      'city': "TEXT NOT NULL DEFAULT ''",
-      'photo_path': "TEXT NOT NULL DEFAULT ''",
-    };
 
-    for (final entry in requiredColumns.entries) {
-      if (!existingColumns.contains(entry.key)) {
-        await database.execute(
-          'ALTER TABLE users ADD COLUMN ${entry.key} ${entry.value}',
-        );
-      }
+    if (!existingColumns.contains('phone')) {
+      await database.execute(
+        "ALTER TABLE $usersTable ADD COLUMN phone TEXT NOT NULL DEFAULT ''",
+      );
+    }
+    if (!existingColumns.contains('city')) {
+      await database.execute(
+        "ALTER TABLE $usersTable ADD COLUMN city TEXT NOT NULL DEFAULT ''",
+      );
+    }
+    if (!existingColumns.contains('created_at')) {
+      await database.execute(
+        "ALTER TABLE $usersTable ADD COLUMN created_at TEXT NOT NULL DEFAULT ''",
+      );
     }
   }
 
   Future<int> insertUser(User user) async {
     final database = await this.database;
-    return database.insert('users', user.toMap());
-  }
-
-  Future<int> updateUser(User user) async {
-    final database = await this.database;
-    final values = user.toMap()..remove('id');
-    return database.update(
-      'users',
-      values,
-      where: 'id = ?',
-      whereArgs: [user.id],
+    await _ensureUserColumns(database);
+    return database.insert(
+      usersTable,
+      user.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.abort,
     );
   }
 
-  Future<int> deleteUser(int id) async {
+  Future<List<User>> getUsers() async {
     final database = await this.database;
-    return database.delete('users', where: 'id = ?', whereArgs: [id]);
+    final rows = await database.query(usersTable, orderBy: 'id DESC');
+    return rows.map(User.fromMap).toList();
   }
 
-  Future<void> _ensureAttendanceTable(Database database) async {
-    await database.execute('''
-      CREATE TABLE IF NOT EXISTS attendance (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT NOT NULL,
-        subject TEXT NOT NULL DEFAULT 'Umum',
-        date TEXT NOT NULL,
-        check_in TEXT NOT NULL,
-        check_out TEXT
-      )
-    ''');
-
-    final columns = await database.rawQuery('PRAGMA table_info(attendance)');
-    final existingColumns = columns.map((column) => column['name'] as String).toSet();
-    if (!existingColumns.contains('subject')) {
-      await database.execute(
-        "ALTER TABLE attendance ADD COLUMN subject TEXT NOT NULL DEFAULT 'Umum'",
-      );
-    }
-  }
-
-  Future<Attendance?> getTodayAttendance(
-    String email,
-    String date,
-    String subject,
-  ) async {
+  Future<Map<String, dynamic>?> getUserByEmail(String email) async {
     final database = await this.database;
-    final rows = await database.query(
-      'attendance',
-      where: 'email = ? AND date = ? AND subject = ?',
-      whereArgs: [email, date, subject],
+    final users = await database.query(
+      usersTable,
+      where: 'email = ?',
+      whereArgs: [email.trim().toLowerCase()],
       limit: 1,
     );
-    return rows.isEmpty ? null : Attendance.fromMap(rows.first);
+
+    return users.isEmpty ? null : users.first;
   }
 
-  Future<int> insertAttendance(Attendance attendance) async {
+  Future<Map<String, dynamic>?> login({
+    required String email,
+    required String password,
+  }) async {
     final database = await this.database;
-    return database.insert('attendance', {
-      'email': attendance.email,
-      'subject': attendance.subject,
-      'date': attendance.date,
-      'check_in': attendance.checkIn.toIso8601String(),
-      'check_out': attendance.checkOut?.toIso8601String(),
-    });
+    final users = await database.query(
+      usersTable,
+      where: 'email = ? AND password = ?',
+      whereArgs: [email.trim().toLowerCase(), password],
+      limit: 1,
+    );
+
+    return users.isEmpty ? null : users.first;
   }
 
-  Future<int> updateAttendanceCheckout(int id, DateTime checkOut) async {
+  Future<int> updateUser({
+    required int id,
+    required String name,
+    required String email,
+    required String phone,
+    required String city,
+  }) async {
     final database = await this.database;
     return database.update(
-      'attendance',
-      {'check_out': checkOut.toIso8601String()},
+      usersTable,
+      {
+        'name': name.trim(),
+        'email': email.trim().toLowerCase(),
+        'phone': phone.trim(),
+        'city': city.trim(),
+      },
       where: 'id = ?',
       whereArgs: [id],
     );
   }
 
-  Future<List<Attendance>> getAttendanceForEmail(String email) async {
+  Future<int> deleteUser(int id) async {
     final database = await this.database;
-    final rows = await database.query(
-      'attendance',
-      where: 'email = ?',
-      whereArgs: [email],
-      orderBy: 'id DESC',
-    );
-    return rows.map(Attendance.fromMap).toList();
+    return database.delete(usersTable, where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<List<User>> getUsers() async {
-    final database = await this.database;
-    final rows = await database.query('users', orderBy: 'id DESC');
-    return rows.map(User.fromMap).toList();
-  }
-
-  Future<User?> getUserByEmail(String email) async {
-    final database = await this.database;
-    final rows = await database.query(
-      'users',
-      where: 'email = ?',
-      whereArgs: [email],
-      limit: 1,
-    );
-    return rows.isEmpty ? null : User.fromMap(rows.first);
+  Future<void> close() async {
+    await _database?.close();
+    _database = null;
   }
 }
