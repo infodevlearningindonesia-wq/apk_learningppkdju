@@ -4,8 +4,8 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:devlearning_indonesia/database/database_platform.dart';
-import 'package:devlearning_indonesia/models/user.dart';
 import 'package:devlearning_indonesia/models/attendance_record.dart';
+import 'package:devlearning_indonesia/models/user.dart';
 
 class DatabaseHelper {
   DatabaseHelper._();
@@ -39,17 +39,12 @@ class DatabaseHelper {
             created_at TEXT NOT NULL
           )
         ''');
-        await database.execute(
-          'CREATE UNIQUE INDEX one_admin_only ON $usersTable(role) '
-          "WHERE role = 'admin'",
-        );
-        await _createAttendanceTable(database);
       },
       onUpgrade: (database, oldVersion, newVersion) async {
         if (oldVersion < 5) await _ensureUserColumns(database);
         if (oldVersion < 6) {
           await database.execute(
-            'CREATE UNIQUE INDEX one_admin_only ON $usersTable(role) '
+            'CREATE UNIQUE INDEX IF NOT EXISTS one_admin_only ON $usersTable(role) '
             "WHERE role = 'admin'",
           );
         }
@@ -58,21 +53,6 @@ class DatabaseHelper {
     );
 
     return _database!;
-  }
-
-  static Future<void> _createAttendanceTable(Database database) async {
-    await database.execute('''
-      CREATE TABLE IF NOT EXISTS $attendanceTable (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        email TEXT NOT NULL,
-        date TEXT NOT NULL,
-        status TEXT NOT NULL,
-        note TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL,
-        UNIQUE(email, date)
-      )
-    ''');
   }
 
   static Future<void> _ensureUserColumns(Database database) async {
@@ -101,6 +81,21 @@ class DatabaseHelper {
         "ALTER TABLE $usersTable ADD COLUMN role TEXT NOT NULL DEFAULT 'peserta'",
       );
     }
+  }
+
+  static Future<void> _createAttendanceTable(Database database) async {
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS $attendanceTable (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        email TEXT NOT NULL,
+        date TEXT NOT NULL,
+        status TEXT NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        UNIQUE(email, date)
+      )
+    ''');
   }
 
   Future<int> insertUser(User user) async {
@@ -145,13 +140,10 @@ class DatabaseHelper {
     );
 
     if (users.isEmpty) return null;
-
     final user = users.first;
     final storedPassword = user['password'] as String? ?? '';
     final hashedPassword = _hashPassword(password);
     if (storedPassword == hashedPassword) return user;
-
-    // Upgrade accounts created before password hashing was introduced.
     if (storedPassword == password) {
       await database.update(
         usersTable,
@@ -161,7 +153,6 @@ class DatabaseHelper {
       );
       return {...user, 'password': hashedPassword};
     }
-
     return null;
   }
 
@@ -199,11 +190,10 @@ class DatabaseHelper {
       'phone': phone.trim(),
       'city': city.trim(),
     };
-    if (role != null) values['role'] = role.value;
     if (password != null && password.isNotEmpty) {
       values['password'] = _hashPassword(password);
     }
-
+    if (role != null) values['role'] = role.value;
     return database.update(
       usersTable,
       values,
