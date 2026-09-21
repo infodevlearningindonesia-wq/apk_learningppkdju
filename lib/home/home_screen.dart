@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:devlearning_indonesia/auth/login_screen.dart';
-import 'package:devlearning_indonesia/auth/register_screen.dart';
 import 'package:devlearning_indonesia/database/database_helper.dart';
 import 'package:devlearning_indonesia/about/about_screen.dart';
 import 'package:devlearning_indonesia/services/preference_handler.dart';
@@ -28,15 +27,6 @@ List<String> _safeCompletedLessons(String courseTitle) {
     return <String>[];
   }
 }
-List<String> _safeAttendanceDates() {
-  try {
-    final value = PreferenceHandler.attendanceDates();
-    return List<String>.from(value);
-  } catch (_) {
-    return <String>[];
-  }
-}
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -203,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home_rounded),
-            label: 'Home',
+            label: 'Beranda Peserta',
           ),
 
           NavigationDestination(
@@ -277,27 +267,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
             _drawerItem(1, Icons.explore_outlined, 'Jelajah materi'),
 
-            _drawerItem(2, Icons.menu_book_outlined, 'Kelas saya'),
+            _drawerItem(2, Icons.menu_book_outlined, 'Belajar saya'),
 
             _drawerItem(3, Icons.person_outline_rounded, 'Profil'),
+
+            ListTile(
+              leading: const Icon(Icons.info_outline_rounded),
+              title: const Text('Tentang aplikasi'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AboutScreen()),
+              ),
+            ),
 
             const Spacer(),
 
             const Divider(height: 1),
-
-            ListTile(
-              leading: const Icon(Icons.person_add_alt_1_rounded),
-              title: const Text('Daftar peserta'),
-
-              onTap: () {
-                Navigator.pop(context);
-
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                );
-              },
-            ),
 
             ListTile(
               leading: const Icon(Icons.logout_rounded),

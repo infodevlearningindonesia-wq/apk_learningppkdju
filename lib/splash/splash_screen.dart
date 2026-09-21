@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:devlearning_indonesia/auth/login_screen.dart';
-import 'package:devlearning_indonesia/home/home_screen.dart';
+import 'package:devlearning_indonesia/auth/role_home_screen.dart';
 import 'package:devlearning_indonesia/services/preference_handler.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -22,7 +22,7 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     final destination = PreferenceHandler.isLogin
-        ? const HomeScreen()
+      ? const RoleHomeScreen()
         : const LoginScreen();
 
     Navigator.pushReplacement(

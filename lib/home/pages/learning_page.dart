@@ -43,7 +43,12 @@ class _LearningPageState extends State<_LearningPage> {
       if (count == entry.value.length) certificates++;
     }
 
-    final attendance = _safeAttendanceDates();
+    final email = PreferenceHandler.userEmail;
+    final attendance = email == null
+      ? <String>[]
+      : (await DatabaseHelper.instance.getAttendanceForUser(email))
+          .map((record) => record.date)
+          .toList();
 
     final today = DateTime.now().toIso8601String().substring(0, 10);
 
@@ -89,7 +94,10 @@ class _LearningPageState extends State<_LearningPage> {
     required String status,
     required String note,
   }) async {
-    await PreferenceHandler.markAttendanceToday(
+    final email = PreferenceHandler.userEmail;
+    if (email == null || email.isEmpty) return;
+    await DatabaseHelper.instance.saveAttendance(
+      email: email,
       status: status,
       note: note,
     );
@@ -188,8 +196,11 @@ class _LearningPageState extends State<_LearningPage> {
     );
   }
 
-  void _showAttendanceHistory() {
-    final records = PreferenceHandler.attendanceRecords();
+  Future<void> _showAttendanceHistory() async {
+    final email = PreferenceHandler.userEmail;
+    if (email == null || email.isEmpty) return;
+    final records = await DatabaseHelper.instance.getAttendanceForUser(email);
+    if (!mounted) return;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -218,11 +229,11 @@ class _LearningPageState extends State<_LearningPage> {
                     Icons.event_available_rounded,
                     color: Color(0xFF3F7D27),
                   ),
-                  title: Text(record['date']!),
+                  title: Text(record.date),
                   subtitle: Text(
-                    record['note']!.isEmpty
-                        ? record['status']!
-                        : '${record['status']} - ${record['note']}',
+                    record.note.isEmpty
+                        ? record.status
+                        : '${record.status} - ${record.note}',
                   ),
                 ),
               ),

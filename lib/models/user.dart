@@ -1,3 +1,27 @@
+enum UserRole { admin, pengajar, peserta }
+
+extension UserRoleX on UserRole {
+  String get value => name;
+
+  String get label {
+    switch (this) {
+      case UserRole.admin:
+        return 'Admin';
+      case UserRole.pengajar:
+        return 'Pengajar';
+      case UserRole.peserta:
+        return 'Peserta';
+    }
+  }
+
+  static UserRole fromValue(String? value) {
+    return UserRole.values.firstWhere(
+      (role) => role.value == value,
+      orElse: () => UserRole.peserta,
+    );
+  }
+}
+
 class User {
   const User({
     this.id,
@@ -6,6 +30,7 @@ class User {
     required this.phone,
     required this.password,
     required this.city,
+    this.role = UserRole.peserta,
     this.createdAt,
   });
 
@@ -15,6 +40,7 @@ class User {
   final String phone;
   final String password;
   final String city;
+  final UserRole role;
   final String? createdAt;
 
   Map<String, dynamic> toMap() {
@@ -25,6 +51,7 @@ class User {
       'phone': phone,
       'password': password,
       'city': city,
+      'role': role.value,
       'created_at': createdAt ?? DateTime.now().toIso8601String(),
     };
   }
@@ -37,6 +64,7 @@ class User {
       phone: map['phone'] as String? ?? '',
       password: map['password'] as String? ?? '',
       city: map['city'] as String? ?? '',
+      role: UserRoleX.fromValue(map['role'] as String?),
       createdAt: map['created_at'] as String?,
     );
   }

@@ -7,6 +7,7 @@ Future<void> main() async {
 	WidgetsFlutterBinding.ensureInitialized();
 	await initializeDatabasePlatform();
 	await PreferenceHandler.init();
+	await PreferenceHandler.recordAppVisit();
 	runApp(const DevLearningApp());
 }
 

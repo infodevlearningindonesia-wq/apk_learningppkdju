@@ -5,14 +5,16 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:devlearning_indonesia/database/database_platform.dart';
 import 'package:devlearning_indonesia/models/user.dart';
+import 'package:devlearning_indonesia/models/attendance_record.dart';
 
 class DatabaseHelper {
   DatabaseHelper._();
 
   static final DatabaseHelper instance = DatabaseHelper._();
   static const _databaseName = 'devlearning.db';
-  static const _databaseVersion = 4;
+  static const _databaseVersion = 7;
   static const usersTable = 'users';
+  static const attendanceTable = 'attendance';
 
   Database? _database;
 
@@ -33,16 +35,44 @@ class DatabaseHelper {
             phone TEXT NOT NULL,
             password TEXT NOT NULL,
             city TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'peserta',
             created_at TEXT NOT NULL
           )
         ''');
+        await database.execute(
+          'CREATE UNIQUE INDEX one_admin_only ON $usersTable(role) '
+          "WHERE role = 'admin'",
+        );
+        await _createAttendanceTable(database);
       },
       onUpgrade: (database, oldVersion, newVersion) async {
-        if (oldVersion < 4) await _ensureUserColumns(database);
+        if (oldVersion < 5) await _ensureUserColumns(database);
+        if (oldVersion < 6) {
+          await database.execute(
+            'CREATE UNIQUE INDEX one_admin_only ON $usersTable(role) '
+            "WHERE role = 'admin'",
+          );
+        }
+        if (oldVersion < 7) await _createAttendanceTable(database);
       },
     );
 
     return _database!;
+  }
+
+  static Future<void> _createAttendanceTable(Database database) async {
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS $attendanceTable (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        email TEXT NOT NULL,
+        date TEXT NOT NULL,
+        status TEXT NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        UNIQUE(email, date)
+      )
+    ''');
   }
 
   static Future<void> _ensureUserColumns(Database database) async {
@@ -64,6 +94,11 @@ class DatabaseHelper {
     if (!existingColumns.contains('created_at')) {
       await database.execute(
         "ALTER TABLE $usersTable ADD COLUMN created_at TEXT NOT NULL DEFAULT ''",
+      );
+    }
+    if (!existingColumns.contains('role')) {
+      await database.execute(
+        "ALTER TABLE $usersTable ADD COLUMN role TEXT NOT NULL DEFAULT 'peserta'",
       );
     }
   }
@@ -130,6 +165,20 @@ class DatabaseHelper {
     return null;
   }
 
+  Future<bool> resetPassword({
+    required String email,
+    required String newPassword,
+  }) async {
+    final database = await this.database;
+    final updated = await database.update(
+      usersTable,
+      {'password': _hashPassword(newPassword)},
+      where: 'email = ?',
+      whereArgs: [email.trim().toLowerCase()],
+    );
+    return updated > 0;
+  }
+
   static String _hashPassword(String password) {
     return sha256.convert(utf8.encode(password)).toString();
   }
@@ -141,6 +190,7 @@ class DatabaseHelper {
     required String phone,
     required String city,
     String? password,
+    UserRole? role,
   }) async {
     final database = await this.database;
     final values = <String, dynamic>{
@@ -149,6 +199,7 @@ class DatabaseHelper {
       'phone': phone.trim(),
       'city': city.trim(),
     };
+    if (role != null) values['role'] = role.value;
     if (password != null && password.isNotEmpty) {
       values['password'] = _hashPassword(password);
     }
@@ -164,6 +215,46 @@ class DatabaseHelper {
   Future<int> deleteUser(int id) async {
     final database = await this.database;
     return database.delete(usersTable, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> saveAttendance({
+    required String email,
+    required String status,
+    required String note,
+  }) async {
+    final database = await this.database;
+    final normalizedEmail = email.trim().toLowerCase();
+    final user = await getUserByEmail(normalizedEmail);
+    final date = DateTime.now().toIso8601String().substring(0, 10);
+    return database.insert(
+      attendanceTable,
+      {
+        'user_id': user?['id'],
+        'email': normalizedEmail,
+        'date': date,
+        'status': status,
+        'note': note.trim(),
+        'created_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<AttendanceRecord>> getAttendanceForUser(String email) async {
+    final database = await this.database;
+    final rows = await database.query(
+      attendanceTable,
+      where: 'email = ?',
+      whereArgs: [email.trim().toLowerCase()],
+      orderBy: 'date ASC',
+    );
+    return rows.map(AttendanceRecord.fromMap).toList();
+  }
+
+  Future<List<AttendanceRecord>> getAllAttendance() async {
+    final database = await this.database;
+    final rows = await database.query(attendanceTable, orderBy: 'date DESC');
+    return rows.map(AttendanceRecord.fromMap).toList();
   }
 
   Future<void> close() async {

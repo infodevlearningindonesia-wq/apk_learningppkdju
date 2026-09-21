@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:devlearning_indonesia/home/home_screen.dart';
+import 'package:devlearning_indonesia/about/about_screen.dart';
+import 'package:devlearning_indonesia/auth/role_home_screen.dart';
+import 'package:devlearning_indonesia/auth/reset_password_screen.dart';
+import 'package:devlearning_indonesia/auth/registered_users_screen.dart';
 import 'package:devlearning_indonesia/auth/register_screen.dart';
 import 'package:devlearning_indonesia/services/preference_handler.dart';
 import 'package:devlearning_indonesia/database/database_helper.dart';
@@ -41,6 +44,26 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RegisteredUsersScreen()),
+            ),
+            icon: const Icon(Icons.list_alt_rounded),
+            label: const Text('Akun terdaftar'),
+          ),
+          IconButton(
+            tooltip: 'Tentang aplikasi',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AboutScreen()),
+            ),
+            icon: const Icon(Icons.info_outline_rounded),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 36, 24, 28),
@@ -106,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () => _showMessage('Tautan reset password akan dikirim.'),
+                    onPressed: _showResetPasswordDialog,
                     child: const Text('Lupa password'),
                   ),
                 ),
@@ -180,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => const RoleHomeScreen()),
       );
     } finally {
       if (mounted) {
@@ -195,5 +218,16 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _showResetPasswordDialog() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ResetPasswordScreen(
+          initialEmail: _emailController.text.trim(),
+        ),
+      ),
+    );
   }
 }

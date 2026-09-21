@@ -13,6 +13,7 @@ class PreferenceHandler {
   static const _userEmailKey = 'userEmail';
   static const _learningNotificationsKey = 'learning_notifications';
   static const _attendanceRecordsKey = 'attendance_records';
+  static const _appVisitsKey = 'app_visits';
 
   // ============================================================
   // SHARED PREFERENCES
@@ -53,6 +54,12 @@ class PreferenceHandler {
 
   static Future<bool> setLogin(bool value) {
     return _prefs.setBool(_isLoginKey, value);
+  }
+
+  static int get appVisitCount => _prefs.getInt(_appVisitsKey) ?? 0;
+
+  static Future<bool> recordAppVisit() {
+    return _prefs.setInt(_appVisitsKey, appVisitCount + 1);
   }
 
   // ============================================================
@@ -149,7 +156,10 @@ class PreferenceHandler {
   }
 
   static List<Map<String, String>> attendanceRecords() {
-    final email = userEmail;
+    return attendanceRecordsFor(userEmail);
+  }
+
+  static List<Map<String, String>> attendanceRecordsFor(String? email) {
     final key = email == null || email.trim().isEmpty
         ? '${_attendanceRecordsKey}_guest'
         : '${_attendanceRecordsKey}_${email.trim().toLowerCase()}';
