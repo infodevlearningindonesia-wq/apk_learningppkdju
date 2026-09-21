@@ -85,8 +85,14 @@ class _LearningPageState extends State<_LearningPage> {
     return streak;
   }
 
-  Future<void> _markAttendance() async {
-    await PreferenceHandler.markAttendanceToday();
+  Future<void> _markAttendance({
+    required String status,
+    required String note,
+  }) async {
+    await PreferenceHandler.markAttendanceToday(
+      status: status,
+      note: note,
+    );
     await PreferenceHandler.addLearningNotification(
       title: 'Kehadiran dicatat',
       message: 'Kehadiran belajarmu hari ini berhasil dicatat.',
@@ -103,7 +109,87 @@ class _LearningPageState extends State<_LearningPage> {
     );
   }
 
-  void _showAttendanceHistory(List<String> dates) {
+  Future<void> _showAttendanceForm() async {
+    final noteController = TextEditingController();
+    var selectedStatus = 'Hadir';
+
+    final result = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            4,
+            24,
+            MediaQuery.viewInsetsOf(context).bottom + 24,
+          ),
+          child: Form(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Form absensi',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                Text('Tanggal: ${DateTime.now().toIso8601String().substring(0, 10)}'),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedStatus,
+                  decoration: const InputDecoration(
+                    labelText: 'Status kehadiran',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Hadir', child: Text('Hadir')),
+                    DropdownMenuItem(value: 'Izin', child: Text('Izin')),
+                    DropdownMenuItem(value: 'Sakit', child: Text('Sakit')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setModalState(() => selectedStatus = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: noteController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Catatan (opsional)',
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () => Navigator.pop(context, {
+                    'status': selectedStatus,
+                    'note': noteController.text.trim(),
+                  }),
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Simpan absensi'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    noteController.dispose();
+
+    if (!mounted || result == null) return;
+    await _markAttendance(
+      status: result['status'] ?? 'Hadir',
+      note: result['note'] ?? '',
+    );
+  }
+
+  void _showAttendanceHistory() {
+    final records = PreferenceHandler.attendanceRecords();
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -122,17 +208,22 @@ class _LearningPageState extends State<_LearningPage> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
-            if (dates.isEmpty)
+            if (records.isEmpty)
               const Text('Belum ada kehadiran tercatat.')
             else
-              ...dates.reversed.map(
-                (date) => ListTile(
+              ...records.reversed.map(
+                (record) => ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(
                     Icons.event_available_rounded,
                     color: Color(0xFF3F7D27),
                   ),
-                  title: Text(date),
+                  title: Text(record['date']!),
+                  subtitle: Text(
+                    record['note']!.isEmpty
+                        ? record['status']!
+                        : '${record['status']} - ${record['note']}',
+                  ),
                 ),
               ),
           ],
@@ -219,8 +310,8 @@ class _LearningPageState extends State<_LearningPage> {
                         Expanded(
                           child: FilledButton.icon(
                             onPressed: progress.attendedToday
-                                ? null
-                                : _markAttendance,
+                              ? null
+                              : _showAttendanceForm,
                             icon: Icon(
                               progress.attendedToday
                                   ? Icons.check_circle_rounded
@@ -238,8 +329,7 @@ class _LearningPageState extends State<_LearningPage> {
 
                         IconButton(
                           tooltip: 'Riwayat kehadiran',
-                          onPressed: () =>
-                              _showAttendanceHistory(progress.attendance),
+                            onPressed: _showAttendanceHistory,
                           icon: const Icon(Icons.history_rounded),
                         ),
                       ],

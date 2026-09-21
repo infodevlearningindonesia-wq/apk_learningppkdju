@@ -3,6 +3,7 @@ import 'package:devlearning_indonesia/home/home_screen.dart';
 import 'package:devlearning_indonesia/auth/register_screen.dart';
 import 'package:devlearning_indonesia/services/preference_handler.dart';
 import 'package:devlearning_indonesia/database/database_helper.dart';
+import 'package:devlearning_indonesia/services/validation.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, this.showLogoutMessage = false});
@@ -79,11 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                   decoration: _inputDecoration('Email', Icons.email_outlined),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'Email wajib diisi';
-                    if (!value.contains('@')) return 'Masukkan email yang valid';
-                    return null;
-                  },
+                  validator: validateEmail,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(

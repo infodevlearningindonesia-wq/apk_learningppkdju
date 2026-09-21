@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PreferenceHandler {
@@ -10,6 +12,7 @@ class PreferenceHandler {
   static const _isLoginKey = 'isLogin';
   static const _userEmailKey = 'userEmail';
   static const _learningNotificationsKey = 'learning_notifications';
+  static const _attendanceRecordsKey = 'attendance_records';
 
   // ============================================================
   // SHARED PREFERENCES
@@ -135,9 +138,39 @@ class PreferenceHandler {
   }
 
   static List<String> attendanceDates() {
+    final records = attendanceRecords();
+    if (records.isNotEmpty) {
+      return records.map((record) => record['date']!).toList()..sort();
+    }
+
     return _readStringList(
       _attendanceKey(),
     );
+  }
+
+  static List<Map<String, String>> attendanceRecords() {
+    final email = userEmail;
+    final key = email == null || email.trim().isEmpty
+        ? '${_attendanceRecordsKey}_guest'
+        : '${_attendanceRecordsKey}_${email.trim().toLowerCase()}';
+
+    try {
+      return _prefs
+          .getStringList(key)
+          ?.map((value) {
+            final record = jsonDecode(value) as Map<String, dynamic>;
+            return {
+              'date': record['date'] as String? ?? '',
+              'status': record['status'] as String? ?? 'Hadir',
+              'note': record['note'] as String? ?? '',
+            };
+          })
+          .where((record) => record['date']!.isNotEmpty)
+          .toList() ??
+        <Map<String, String>>[];
+    } catch (_) {
+      return <Map<String, String>>[];
+    }
   }
 
   // ============================================================
@@ -164,23 +197,40 @@ class PreferenceHandler {
   // MARK ATTENDANCE TODAY
   // ============================================================
 
-  static Future<bool> markAttendanceToday() async {
+  static Future<bool> markAttendanceToday({
+    String status = 'Hadir',
+    String note = '',
+  }) async {
     final today = DateTime.now()
         .toIso8601String()
         .substring(0, 10);
 
-    final dates = attendanceDates();
-
-    if (!dates.contains(today)) {
-      dates.add(today);
+    final records = attendanceRecords();
+    if (records.isEmpty) {
+      records.addAll(
+        _readStringList(_attendanceKey()).map(
+          (date) => {'date': date, 'status': 'Hadir', 'note': ''},
+        ),
+      );
     }
 
-    dates.sort();
+    records.removeWhere((record) => record['date'] == today);
+    records.add({'date': today, 'status': status, 'note': note});
+    records.sort((a, b) => a['date']!.compareTo(b['date']!));
 
     return _prefs.setStringList(
-      _attendanceKey(),
-      dates,
+      _attendanceRecordsStorageKey(),
+      records.map(jsonEncode).toList(),
     );
+  }
+
+  static String _attendanceRecordsStorageKey() {
+    final email = userEmail;
+    if (email == null || email.trim().isEmpty) {
+      return '${_attendanceRecordsKey}_guest';
+    }
+
+    return '${_attendanceRecordsKey}_${email.trim().toLowerCase()}';
   }
 
   // ============================================================

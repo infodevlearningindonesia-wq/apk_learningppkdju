@@ -1,5 +1,9 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:devlearning_indonesia/database/database_platform.dart';
 import 'package:devlearning_indonesia/models/user.dart';
 
 class DatabaseHelper {
@@ -15,6 +19,7 @@ class DatabaseHelper {
   Future<Database> get database async {
     if (_database != null) return _database!;
 
+    await initializeDatabasePlatform();
     final databasePath = await getDatabasesPath();
     _database = await openDatabase(
       join(databasePath, _databaseName),
@@ -66,9 +71,10 @@ class DatabaseHelper {
   Future<int> insertUser(User user) async {
     final database = await this.database;
     await _ensureUserColumns(database);
+    final values = user.toMap()..['password'] = _hashPassword(user.password);
     return database.insert(
       usersTable,
-      user.toMap(),
+      values,
       conflictAlgorithm: ConflictAlgorithm.abort,
     );
   }
@@ -98,12 +104,34 @@ class DatabaseHelper {
     final database = await this.database;
     final users = await database.query(
       usersTable,
-      where: 'email = ? AND password = ?',
-      whereArgs: [email.trim().toLowerCase(), password],
+      where: 'email = ?',
+      whereArgs: [email.trim().toLowerCase()],
       limit: 1,
     );
 
-    return users.isEmpty ? null : users.first;
+    if (users.isEmpty) return null;
+
+    final user = users.first;
+    final storedPassword = user['password'] as String? ?? '';
+    final hashedPassword = _hashPassword(password);
+    if (storedPassword == hashedPassword) return user;
+
+    // Upgrade accounts created before password hashing was introduced.
+    if (storedPassword == password) {
+      await database.update(
+        usersTable,
+        {'password': hashedPassword},
+        where: 'id = ?',
+        whereArgs: [user['id']],
+      );
+      return {...user, 'password': hashedPassword};
+    }
+
+    return null;
+  }
+
+  static String _hashPassword(String password) {
+    return sha256.convert(utf8.encode(password)).toString();
   }
 
   Future<int> updateUser({
@@ -112,16 +140,22 @@ class DatabaseHelper {
     required String email,
     required String phone,
     required String city,
+    String? password,
   }) async {
     final database = await this.database;
+    final values = <String, dynamic>{
+      'name': name.trim(),
+      'email': email.trim().toLowerCase(),
+      'phone': phone.trim(),
+      'city': city.trim(),
+    };
+    if (password != null && password.isNotEmpty) {
+      values['password'] = _hashPassword(password);
+    }
+
     return database.update(
       usersTable,
-      {
-        'name': name.trim(),
-        'email': email.trim().toLowerCase(),
-        'phone': phone.trim(),
-        'city': city.trim(),
-      },
+      values,
       where: 'id = ?',
       whereArgs: [id],
     );
