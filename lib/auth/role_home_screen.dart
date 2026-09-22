@@ -110,7 +110,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const LoginScreen(showLogoutMessage: true)),
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(showLogoutMessage: true),
+      ),
       (_) => false,
     );
   }
@@ -129,7 +131,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     child: Icon(Icons.admin_panel_settings_outlined, size: 32),
                   ),
                   SizedBox(height: 10),
-                  Text('Menu Admin', style: TextStyle(fontWeight: FontWeight.w800)),
+                  Text(
+                    'Menu Admin',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ],
               ),
             ),
@@ -155,7 +160,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               title: const Text('Profil Admin'),
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => RoleProfileScreen(user: widget.user)),
+                MaterialPageRoute(
+                  builder: (_) => RoleProfileScreen(user: widget.user),
+                ),
               ),
             ),
             ListTile(
@@ -189,7 +196,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             tooltip: 'Profil admin',
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => RoleProfileScreen(user: widget.user)),
+              MaterialPageRoute(
+                builder: (_) => RoleProfileScreen(user: widget.user),
+              ),
             ),
             icon: const Icon(Icons.person_outline_rounded),
           ),
@@ -201,7 +210,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             ),
             icon: const Icon(Icons.info_outline_rounded),
           ),
-          IconButton(onPressed: _logout, icon: const Icon(Icons.logout_rounded)),
+          IconButton(
+            onPressed: _logout,
+            icon: const Icon(Icons.logout_rounded),
+          ),
         ],
       ),
       drawer: _buildAdminDrawer(),
@@ -218,14 +230,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           } else {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => RoleProfileScreen(user: widget.user)),
+              MaterialPageRoute(
+                builder: (_) => RoleProfileScreen(user: widget.user),
+              ),
             );
           }
         },
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.admin_panel_settings_outlined), label: 'Admin'),
-          NavigationDestination(icon: Icon(Icons.manage_accounts_outlined), label: 'User'),
-          NavigationDestination(icon: Icon(Icons.person_outline_rounded), label: 'Profil'),
+          NavigationDestination(
+            icon: Icon(Icons.admin_panel_settings_outlined),
+            label: 'Admin',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.manage_accounts_outlined),
+            label: 'User',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline_rounded),
+            label: 'Profil',
+          ),
         ],
       ),
       body: RefreshIndicator(
@@ -259,7 +282,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               children: [
                 _RoleHeader(
                   title: 'Beranda Admin',
-                  subtitle: 'Ringkasan data operasional dan administrasi kantor.',
+                  subtitle:
+                      'Ringkasan data operasional dan administrasi kantor.',
                   icon: Icons.admin_panel_settings_outlined,
                 ),
                 const SizedBox(height: 16),
@@ -272,7 +296,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   children: [
                     Expanded(
                       child: _AdminStat(
-                        value: '${users.where((user) => user.role == UserRole.admin).length}',
+                        value:
+                            '${users.where((user) => user.role == UserRole.admin).length}',
                         label: 'Admin',
                         icon: Icons.admin_panel_settings_outlined,
                       ),
@@ -288,7 +313,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: _AdminStat(
-                        value: '${users.where((user) => user.role == UserRole.pengajar).length}',
+                        value:
+                            '${users.where((user) => user.role == UserRole.pengajar).length}',
                         label: 'Pengajar',
                         icon: Icons.school_outlined,
                       ),
@@ -296,7 +322,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: _AdminStat(
-                        value: '${users.where((user) => user.role == UserRole.peserta).length}',
+                        value:
+                            '${users.where((user) => user.role == UserRole.peserta).length}',
                         label: 'Peserta',
                         icon: Icons.person_outline_rounded,
                       ),
@@ -355,7 +382,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   _lastUpdated == null
                       ? 'Memuat data terbaru...'
                       : 'Data terbaru diperbarui ${_formatTime(_lastUpdated!)}',
-                  style: const TextStyle(color: Color(0xFF68736F), fontSize: 12),
+                  style: const TextStyle(
+                    color: Color(0xFF68736F),
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Card(
@@ -371,7 +401,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const AdminUsersScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const AdminUsersScreen(),
+                      ),
                     ),
                   ),
                 ),
@@ -435,14 +467,18 @@ class _AdminActivityScreenState extends State<AdminActivityScreen> {
           if (snapshot.hasError) {
             return const Center(child: Text('Aktivitas gagal dimuat.'));
           }
-            final data = snapshot.data;
-            if (data == null) return const Center(child: Text('Aktivitas tidak tersedia.'));
-            final users = data.$1;
-            final attendance = data.$2;
-            final attendanceCount = attendance.length;
+          final data = snapshot.data;
+          if (data == null) {
+            return const Center(child: Text('Aktivitas tidak tersedia.'));
+          }
+          final users = data.$1;
+          final attendance = data.$2;
+          final attendanceCount = attendance.length;
           final attendanceUsers = users
-              .where((user) =>
-                attendance.any((record) => record.email == user.email))
+              .where(
+                (user) =>
+                    attendance.any((record) => record.email == user.email),
+              )
               .toList();
 
           return RefreshIndicator(
@@ -485,16 +521,18 @@ class _AdminActivityScreenState extends State<AdminActivityScreen> {
                 if (users.isEmpty)
                   const Text('Belum ada user terdaftar.')
                 else
-                  ...users.take(5).map(
-                    (user) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.person_outline_rounded),
+                  ...users
+                      .take(5)
+                      .map(
+                        (user) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const CircleAvatar(
+                            child: Icon(Icons.person_outline_rounded),
+                          ),
+                          title: Text(user.name),
+                          subtitle: Text('${user.email} - ${user.role.label}'),
+                        ),
                       ),
-                      title: Text(user.name),
-                      subtitle: Text('${user.email} - ${user.role.label}'),
-                    ),
-                  ),
                 const SizedBox(height: 16),
                 const Text(
                   'Peserta dengan aktivitas absensi',
@@ -572,6 +610,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   Future<void> _changeRole(User user, UserRole role) async {
     if (user.id == null || user.role == role) return;
+    final isCurrentUser =
+        user.email.trim().toLowerCase() == PreferenceHandler.userEmail;
     try {
       await DatabaseHelper.instance.updateUser(
         id: user.id!,
@@ -581,8 +621,17 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         city: user.city,
         role: role,
       );
-      await _reload();
-      if (mounted) _message('${user.name} sekarang menjadi ${role.label}.');
+      if (!mounted) return;
+      if (isCurrentUser) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const RoleHomeScreen()),
+          (_) => false,
+        );
+      } else {
+        await _reload();
+        if (mounted) _message('${user.name} sekarang menjadi ${role.label}.');
+      }
     } on DatabaseException {
       if (mounted) _message('Admin hanya boleh satu akun.');
       await _reload();
@@ -590,7 +639,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Future<void> _deleteUser(User user) async {
-    if (user.id == null || user.email == PreferenceHandler.userEmail) return;
+    if (user.id == null) return;
+    final isCurrentUser =
+        user.email.trim().toLowerCase() == PreferenceHandler.userEmail;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -610,6 +661,16 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
     if (confirmed != true) return;
     await DatabaseHelper.instance.deleteUser(user.id!);
+    if (isCurrentUser) {
+      await PreferenceHandler.clearSession();
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (_) => false,
+      );
+      return;
+    }
     await _reload();
     if (mounted) _message('Akun berhasil dihapus.');
   }
@@ -659,9 +720,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             final users = snapshot.data ?? <User>[];
             final query = _searchController.text.trim().toLowerCase();
             final filteredUsers = users.where((user) {
-              final matchesRole = _roleFilter == 'Semua' ||
-                  user.role.label == _roleFilter;
-              final matchesQuery = query.isEmpty ||
+              final matchesRole =
+                  _roleFilter == 'Semua' || user.role.label == _roleFilter;
+              final matchesQuery =
+                  query.isEmpty ||
                   user.name.toLowerCase().contains(query) ||
                   user.email.toLowerCase().contains(query);
               return matchesRole && matchesQuery;
@@ -673,7 +735,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               children: [
                 _RoleHeader(
                   title: 'Manajemen akun',
-                  subtitle: 'Kelola semua data user dan role dari halaman Users.',
+                  subtitle:
+                      'Kelola semua data user dan role dari halaman Users.',
                   icon: Icons.manage_accounts_outlined,
                 ),
                 const SizedBox(height: 16),
@@ -714,24 +777,29 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: ['Semua', ...UserRole.values.map((role) => role.label)]
-                        .map(
-                          (filter) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(filter),
-                              selected: _roleFilter == filter,
-                              onSelected: (_) => setState(() => _roleFilter = filter),
-                            ),
-                          ),
-                        )
-                        .toList(),
+                    children:
+                        ['Semua', ...UserRole.values.map((role) => role.label)]
+                            .map(
+                              (filter) => Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text(filter),
+                                  selected: _roleFilter == filter,
+                                  onSelected: (_) =>
+                                      setState(() => _roleFilter = filter),
+                                ),
+                              ),
+                            )
+                            .toList(),
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Data terbaru diperbarui ${_lastUpdated.hour.toString().padLeft(2, '0')}:${_lastUpdated.minute.toString().padLeft(2, '0')}',
-                  style: const TextStyle(color: Color(0xFF68736F), fontSize: 12),
+                  style: const TextStyle(
+                    color: Color(0xFF68736F),
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 if (filteredUsers.isEmpty)
@@ -743,10 +811,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   (user) => Card(
                     child: ListTile(
                       leading: CircleAvatar(
-                        child: Text(user.name.isEmpty ? '?' : user.name[0].toUpperCase()),
+                        child: Text(
+                          user.name.isEmpty ? '?' : user.name[0].toUpperCase(),
+                        ),
                       ),
                       title: Text(user.name),
-                      subtitle: Text('${user.email}\n${user.phone} - ${user.role.label}'),
+                      subtitle: Text(
+                        '${user.email}\n${user.phone} - ${user.role.label}',
+                      ),
                       isThreeLine: true,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -754,19 +826,20 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                           DropdownButton<UserRole>(
                             value: user.role,
                             items: UserRole.values
-                                .map((role) => DropdownMenuItem(value: role, child: Text(role.label)))
+                                .map(
+                                  (role) => DropdownMenuItem(
+                                    value: role,
+                                    child: Text(role.label),
+                                  ),
+                                )
                                 .toList(),
-                            onChanged: user.email == PreferenceHandler.userEmail
-                                ? null
-                                : (role) {
-                                    if (role != null) _changeRole(user, role);
-                                  },
+                            onChanged: (role) {
+                              if (role != null) _changeRole(user, role);
+                            },
                           ),
                           IconButton(
                             tooltip: 'Hapus akun',
-                            onPressed: user.email == PreferenceHandler.userEmail
-                                ? null
-                                : () => _deleteUser(user),
+                            onPressed: () => _deleteUser(user),
                             icon: const Icon(Icons.delete_outline),
                           ),
                         ],
@@ -793,7 +866,9 @@ class PengajarHomeScreen extends StatelessWidget {
     if (!context.mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const LoginScreen(showLogoutMessage: true)),
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(showLogoutMessage: true),
+      ),
       (_) => false,
     );
   }
@@ -812,7 +887,10 @@ class PengajarHomeScreen extends StatelessWidget {
                     child: Icon(Icons.school_outlined, size: 32),
                   ),
                   SizedBox(height: 10),
-                  Text('Menu Pengajar', style: TextStyle(fontWeight: FontWeight.w800)),
+                  Text(
+                    'Menu Pengajar',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ],
               ),
             ),
@@ -850,7 +928,9 @@ class PengajarHomeScreen extends StatelessWidget {
               title: const Text('Profil Pengajar'),
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => RoleProfileScreen(user: user)),
+                MaterialPageRoute(
+                  builder: (_) => RoleProfileScreen(user: user),
+                ),
               ),
             ),
             ListTile(
@@ -897,15 +977,27 @@ class PengajarHomeScreen extends StatelessWidget {
             ),
             icon: const Icon(Icons.info_outline_rounded),
           ),
-          IconButton(onPressed: () => _logout(context), icon: const Icon(Icons.logout_rounded)),
+          IconButton(
+            onPressed: () => _logout(context),
+            icon: const Icon(Icons.logout_rounded),
+          ),
         ],
       ),
       drawer: _buildPengajarDrawer(context),
       bottomNavigationBar: NavigationBar(
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Beranda'),
-          NavigationDestination(icon: Icon(Icons.menu_book_outlined), label: 'Materi'),
-          NavigationDestination(icon: Icon(Icons.people_outline_rounded), label: 'Peserta'),
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            label: 'Beranda',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.menu_book_outlined),
+            label: 'Materi',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.people_outline_rounded),
+            label: 'Peserta',
+          ),
         ],
         onDestinationSelected: (index) {
           if (index == 1) {
@@ -997,7 +1089,9 @@ class TeacherMaterialsScreen extends StatelessWidget {
                 trailing: IconButton(
                   tooltip: 'Kelola materi',
                   onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Materi ${course.$1} siap dikelola.')),
+                    SnackBar(
+                      content: Text('Materi ${course.$1} siap dikelola.'),
+                    ),
                   ),
                   icon: const Icon(Icons.edit_note_outlined),
                 ),
@@ -1036,7 +1130,9 @@ class TeacherParticipantsScreen extends StatelessWidget {
               final participant = participants[index];
               return Card(
                 child: ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.person_outline),
+                  ),
                   title: Text(participant.name),
                   subtitle: Text('${participant.email}\n${participant.city}'),
                   isThreeLine: true,
@@ -1063,10 +1159,12 @@ class TeacherAttendanceScreen extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-            final data = snapshot.data;
-            if (data == null) return const Center(child: Text('Data tidak tersedia.'));
-            final attendance = data.$2;
-            final participants = data.$1
+          final data = snapshot.data;
+          if (data == null) {
+            return const Center(child: Text('Data tidak tersedia.'));
+          }
+          final attendance = data.$2;
+          final participants = data.$1
               .where((user) => user.role == UserRole.peserta)
               .toList();
           return ListView(
@@ -1080,9 +1178,7 @@ class TeacherAttendanceScreen extends StatelessWidget {
                   leading: const Icon(Icons.event_available_outlined),
                   title: Text(participant.name),
                   subtitle: Text('${records.length} catatan kehadiran'),
-                  trailing: Text(
-                    records.isEmpty ? '-' : records.last.date,
-                  ),
+                  trailing: Text(records.isEmpty ? '-' : records.last.date),
                 ),
               );
             }).toList(),
@@ -1100,7 +1196,11 @@ class TeacherAttendanceScreen extends StatelessWidget {
 }
 
 class _RoleHeader extends StatelessWidget {
-  const _RoleHeader({required this.title, required this.subtitle, required this.icon});
+  const _RoleHeader({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
 
   final String title;
   final String subtitle;
@@ -1124,7 +1224,13 @@ class _RoleHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(subtitle),
                 ],
@@ -1187,7 +1293,11 @@ class RoleProfileScreen extends StatelessWidget {
           const CircleAvatar(
             radius: 42,
             backgroundColor: Color(0xFFE6F5DA),
-            child: Icon(Icons.person_rounded, size: 46, color: Color(0xFF3F7D27)),
+            child: Icon(
+              Icons.person_rounded,
+              size: 46,
+              color: Color(0xFF3F7D27),
+            ),
           ),
           const SizedBox(height: 14),
           Center(
@@ -1238,7 +1348,12 @@ class RoleProfileScreen extends StatelessWidget {
 }
 
 class _ActionCard extends StatelessWidget {
-  const _ActionCard({required this.icon, required this.title, required this.subtitle, required this.onTap});
+  const _ActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String title;

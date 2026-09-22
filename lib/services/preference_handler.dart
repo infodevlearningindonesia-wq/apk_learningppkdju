@@ -81,10 +81,16 @@ class PreferenceHandler {
   // COMPLETED LESSONS
   // ============================================================
 
+  static String _completedLessonsStorageKey(String courseTitle) {
+    final email = userEmail;
+    final accountKey = email == null || email.trim().isEmpty
+        ? 'guest'
+        : email.trim().toLowerCase();
+    return 'completed_${accountKey}_$courseTitle';
+  }
+
   static List<String> completedLessons(String courseTitle) {
-    return _readStringList(
-      'completed_$courseTitle',
-    );
+    return _readStringList(_completedLessonsStorageKey(courseTitle));
   }
 
   static Future<bool> setCompletedLessons(
@@ -92,7 +98,7 @@ class PreferenceHandler {
     List<String> lessonIds,
   ) {
     return _prefs.setStringList(
-      'completed_$courseTitle',
+      _completedLessonsStorageKey(courseTitle),
       List<String>.from(lessonIds),
     );
   }

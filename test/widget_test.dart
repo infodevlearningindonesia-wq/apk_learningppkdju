@@ -21,4 +21,16 @@ void main() {
     expect(find.text('Lupa password'), findsOneWidget);
     expect(find.widgetWithText(ElevatedButton, 'Login'), findsOneWidget);
   });
+
+  testWidgets('tombol Login memvalidasi form yang masih kosong', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
+    await tester.pump();
+
+    expect(find.text('Email wajib diisi'), findsOneWidget);
+    expect(find.text('Password wajib diisi'), findsOneWidget);
+  });
 }

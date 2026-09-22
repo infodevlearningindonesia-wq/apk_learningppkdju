@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:devlearning_indonesia/auth/login_screen.dart';
@@ -27,6 +29,7 @@ List<String> _safeCompletedLessons(String courseTitle) {
     return <String>[];
   }
 }
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -237,7 +240,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   const CircleAvatar(
                     radius: 30,
                     backgroundColor: Color(0xFFE6F5DA),
-                    backgroundImage: AssetImage('assets/icon_app/icon-logo.jpg'),
+                    backgroundImage: AssetImage(
+                      'assets/icon_app/icon-logo.jpg',
+                    ),
                   ),
 
                   const SizedBox(height: 16),

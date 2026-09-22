@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+
 import 'package:devlearning_indonesia/database/database_platform.dart';
 import 'package:devlearning_indonesia/models/attendance_record.dart';
 import 'package:devlearning_indonesia/models/user.dart';
@@ -10,169 +11,515 @@ import 'package:devlearning_indonesia/models/user.dart';
 class DatabaseHelper {
   DatabaseHelper._();
 
-  static final DatabaseHelper instance = DatabaseHelper._();
-  static const _databaseName = 'devlearning.db';
-  static const _databaseVersion = 7;
-  static const usersTable = 'users';
-  static const attendanceTable = 'attendance';
+  static final DatabaseHelper instance =
+      DatabaseHelper._();
+
+  static const String _databaseName =
+      'devlearning.db';
+
+  // Naikkan versi database agar migration dijalankan.
+  static const int _databaseVersion = 12;
+
+  static const String usersTable = 'users';
+  static const String attendanceTable = 'attendance';
 
   Database? _database;
 
+  // ============================================================
+  // DATABASE
+  // ============================================================
+
   Future<Database> get database async {
-    if (_database != null) return _database!;
+    if (_database != null) {
+      return _database!;
+    }
 
     await initializeDatabasePlatform();
-    final databasePath = await getDatabasesPath();
+
+    final databasePath =
+        await getDatabasesPath();
+
+    final path = join(
+      databasePath,
+      _databaseName,
+    );
+
     _database = await openDatabase(
-      join(databasePath, _databaseName),
+      path,
       version: _databaseVersion,
-      onCreate: (database, version) async {
-        await database.execute('''
-          CREATE TABLE $usersTable (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE,
-            phone TEXT NOT NULL,
-            password TEXT NOT NULL,
-            city TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'peserta',
-            created_at TEXT NOT NULL
-          )
-        ''');
+
+      onCreate: (db, version) async {
+        await _createUsersTable(db);
+        await _createAttendanceTable(db);
+        await _createIndexes(db);
       },
-      onUpgrade: (database, oldVersion, newVersion) async {
-        if (oldVersion < 5) await _ensureUserColumns(database);
-        if (oldVersion < 6) {
-          await database.execute(
-            'CREATE UNIQUE INDEX IF NOT EXISTS one_admin_only ON $usersTable(role) '
-            "WHERE role = 'admin'",
-          );
-        }
-        if (oldVersion < 7) await _createAttendanceTable(database);
+
+      onUpgrade: (
+        db,
+        oldVersion,
+        newVersion,
+      ) async {
+        await _migrateDatabase(
+          db,
+          oldVersion,
+          newVersion,
+        );
       },
+
+      onDowngrade:
+          onDatabaseDowngradeDelete,
+    );
+
+    // Pastikan database lama tetap diperbaiki.
+    await _ensureUsersTable(
+      _database!,
+    );
+
+    await _ensureUserColumns(
+      _database!,
+    );
+
+    await _ensureAttendanceTable(
+      _database!,
+    );
+
+    await _ensureAttendanceColumns(
+      _database!,
+    );
+
+    await _createIndexes(
+      _database!,
     );
 
     return _database!;
   }
 
-  static Future<void> _ensureUserColumns(Database database) async {
-    final columns = await database.rawQuery('PRAGMA table_info($usersTable)');
-    final existingColumns = columns
-        .map((column) => column['name'] as String)
-        .toSet();
+  // ============================================================
+  // MIGRATION
+  // ============================================================
 
-    if (!existingColumns.contains('phone')) {
-      await database.execute(
-        "ALTER TABLE $usersTable ADD COLUMN phone TEXT NOT NULL DEFAULT ''",
-      );
-    }
-    if (!existingColumns.contains('city')) {
-      await database.execute(
-        "ALTER TABLE $usersTable ADD COLUMN city TEXT NOT NULL DEFAULT ''",
-      );
-    }
-    if (!existingColumns.contains('created_at')) {
-      await database.execute(
-        "ALTER TABLE $usersTable ADD COLUMN created_at TEXT NOT NULL DEFAULT ''",
-      );
-    }
-    if (!existingColumns.contains('role')) {
-      await database.execute(
-        "ALTER TABLE $usersTable ADD COLUMN role TEXT NOT NULL DEFAULT 'peserta'",
-      );
-    }
+  static Future<void> _migrateDatabase(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    await _ensureUsersTable(db);
+
+    await _ensureUserColumns(db);
+
+    await _ensureAttendanceTable(db);
+
+    await _ensureAttendanceColumns(db);
+
+    await _createIndexes(db);
   }
 
-  static Future<void> _createAttendanceTable(Database database) async {
-    await database.execute('''
-      CREATE TABLE IF NOT EXISTS $attendanceTable (
+  // ============================================================
+  // USERS TABLE
+  // ============================================================
+
+  static Future<void> _createUsersTable(
+    Database db,
+  ) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $usersTable (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        email TEXT NOT NULL,
-        date TEXT NOT NULL,
-        status TEXT NOT NULL,
-        note TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL,
-        UNIQUE(email, date)
+        name TEXT NOT NULL DEFAULT '',
+        email TEXT NOT NULL UNIQUE,
+        phone TEXT NOT NULL DEFAULT '',
+        password TEXT NOT NULL DEFAULT '',
+        city TEXT NOT NULL DEFAULT '',
+        role TEXT NOT NULL DEFAULT 'peserta',
+        created_at TEXT NOT NULL DEFAULT ''
       )
     ''');
   }
 
-  Future<int> insertUser(User user) async {
-    final database = await this.database;
-    await _ensureUserColumns(database);
-    final values = user.toMap()..['password'] = _hashPassword(user.password);
-    return database.insert(
+  static Future<void> _ensureUsersTable(
+    Database db,
+  ) async {
+    await _createUsersTable(db);
+  }
+
+  // ============================================================
+  // USERS COLUMNS
+  // ============================================================
+
+  static Future<void> _ensureUserColumns(
+    Database db,
+  ) async {
+    final result = await db.rawQuery(
+      'PRAGMA table_info($usersTable)',
+    );
+
+    final columns = result
+        .map(
+          (row) => row['name']?.toString(),
+        )
+        .whereType<String>()
+        .toSet();
+
+    if (!columns.contains('name')) {
+      await db.execute(
+        "ALTER TABLE $usersTable "
+        "ADD COLUMN name TEXT NOT NULL DEFAULT ''",
+      );
+    }
+
+    if (!columns.contains('email')) {
+      await db.execute(
+        "ALTER TABLE $usersTable "
+        "ADD COLUMN email TEXT NOT NULL DEFAULT ''",
+      );
+    }
+
+    if (!columns.contains('phone')) {
+      await db.execute(
+        "ALTER TABLE $usersTable "
+        "ADD COLUMN phone TEXT NOT NULL DEFAULT ''",
+      );
+    }
+
+    if (!columns.contains('password')) {
+      await db.execute(
+        "ALTER TABLE $usersTable "
+        "ADD COLUMN password TEXT NOT NULL DEFAULT ''",
+      );
+    }
+
+    if (!columns.contains('city')) {
+      await db.execute(
+        "ALTER TABLE $usersTable "
+        "ADD COLUMN city TEXT NOT NULL DEFAULT ''",
+      );
+    }
+
+    if (!columns.contains('role')) {
+      await db.execute(
+        "ALTER TABLE $usersTable "
+        "ADD COLUMN role TEXT NOT NULL DEFAULT 'peserta'",
+      );
+    }
+
+    if (!columns.contains('created_at')) {
+      await db.execute(
+        "ALTER TABLE $usersTable "
+        "ADD COLUMN created_at TEXT NOT NULL DEFAULT ''",
+      );
+    }
+  }
+
+  // ============================================================
+  // ATTENDANCE TABLE
+  // ============================================================
+
+  static Future<void> _createAttendanceTable(
+    Database db,
+  ) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $attendanceTable (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        email TEXT NOT NULL DEFAULT '',
+        date TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'Hadir',
+        note TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT '',
+        check_in TEXT NOT NULL DEFAULT ''
+      )
+    ''');
+  }
+
+  static Future<void> _ensureAttendanceTable(
+    Database db,
+  ) async {
+    await _createAttendanceTable(db);
+  }
+
+  // ============================================================
+  // ATTENDANCE COLUMNS
+  // ============================================================
+
+  static Future<void> _ensureAttendanceColumns(
+    Database db,
+  ) async {
+    final result = await db.rawQuery(
+      'PRAGMA table_info($attendanceTable)',
+    );
+
+    final columns = result
+        .map(
+          (row) => row['name']?.toString(),
+        )
+        .whereType<String>()
+        .toSet();
+
+    if (!columns.contains('user_id')) {
+      await db.execute(
+        "ALTER TABLE $attendanceTable "
+        "ADD COLUMN user_id INTEGER",
+      );
+    }
+
+    if (!columns.contains('email')) {
+      await db.execute(
+        "ALTER TABLE $attendanceTable "
+        "ADD COLUMN email TEXT NOT NULL DEFAULT ''",
+      );
+    }
+
+    if (!columns.contains('date')) {
+      await db.execute(
+        "ALTER TABLE $attendanceTable "
+        "ADD COLUMN date TEXT NOT NULL DEFAULT ''",
+      );
+    }
+
+    if (!columns.contains('status')) {
+      await db.execute(
+        "ALTER TABLE $attendanceTable "
+        "ADD COLUMN status TEXT NOT NULL DEFAULT 'Hadir'",
+      );
+    }
+
+    if (!columns.contains('note')) {
+      await db.execute(
+        "ALTER TABLE $attendanceTable "
+        "ADD COLUMN note TEXT NOT NULL DEFAULT ''",
+      );
+    }
+
+    if (!columns.contains('created_at')) {
+      await db.execute(
+        "ALTER TABLE $attendanceTable "
+        "ADD COLUMN created_at TEXT NOT NULL DEFAULT ''",
+      );
+    }
+
+    // ==========================================================
+    // CHECK IN
+    // ==========================================================
+
+    if (!columns.contains('check_in')) {
+      await db.execute(
+        "ALTER TABLE $attendanceTable "
+        "ADD COLUMN check_in TEXT NOT NULL DEFAULT ''",
+      );
+    }
+  }
+
+  // ============================================================
+  // INDEX
+  // ============================================================
+
+  static Future<void> _createIndexes(
+    Database db,
+  ) async {
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS
+      idx_attendance_email
+      ON $attendanceTable(email)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS
+      idx_attendance_date
+      ON $attendanceTable(date)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS
+      idx_attendance_email_date
+      ON $attendanceTable(email, date)
+    ''');
+  }
+
+  // ============================================================
+  // INSERT USER
+  // ============================================================
+
+  Future<int> insertUser(
+    User user,
+  ) async {
+    final db = await database;
+
+    final values =
+        Map<String, dynamic>.from(
+      user.toMap(),
+    );
+
+    values['name'] =
+        user.name.trim();
+
+    values['email'] =
+        user.email.trim().toLowerCase();
+
+    values['phone'] =
+        user.phone.trim();
+
+    values['city'] =
+        user.city.trim();
+
+    values['password'] =
+        _hashPassword(
+      user.password,
+    );
+
+    values['created_at'] =
+        DateTime.now()
+            .toIso8601String();
+
+    return db.insert(
       usersTable,
       values,
-      conflictAlgorithm: ConflictAlgorithm.abort,
+      conflictAlgorithm:
+          ConflictAlgorithm.abort,
     );
   }
 
+  // ============================================================
+  // GET USERS
+  // ============================================================
+
   Future<List<User>> getUsers() async {
-    final database = await this.database;
-    final rows = await database.query(usersTable, orderBy: 'id DESC');
-    return rows.map(User.fromMap).toList();
+    final db = await database;
+
+    final rows = await db.query(
+      usersTable,
+      orderBy: 'id DESC',
+    );
+
+    return rows
+        .map(User.fromMap)
+        .toList();
   }
 
-  Future<Map<String, dynamic>?> getUserByEmail(String email) async {
-    final database = await this.database;
-    final users = await database.query(
+  // ============================================================
+  // GET USER BY EMAIL
+  // ============================================================
+
+  Future<Map<String, dynamic>?>
+      getUserByEmail(
+    String email,
+  ) async {
+    final db = await database;
+
+    final normalizedEmail =
+        email.trim().toLowerCase();
+
+    final rows = await db.query(
       usersTable,
-      where: 'email = ?',
-      whereArgs: [email.trim().toLowerCase()],
+      where: 'LOWER(email) = ?',
+      whereArgs: [
+        normalizedEmail,
+      ],
       limit: 1,
     );
 
-    return users.isEmpty ? null : users.first;
+    if (rows.isEmpty) {
+      return null;
+    }
+
+    return rows.first;
   }
+
+  // ============================================================
+  // LOGIN
+  // ============================================================
 
   Future<Map<String, dynamic>?> login({
     required String email,
     required String password,
   }) async {
-    final database = await this.database;
-    final users = await database.query(
+    final db = await database;
+
+    final normalizedEmail =
+        email.trim().toLowerCase();
+
+    final rows = await db.query(
       usersTable,
-      where: 'email = ?',
-      whereArgs: [email.trim().toLowerCase()],
+      where: 'LOWER(email) = ?',
+      whereArgs: [
+        normalizedEmail,
+      ],
       limit: 1,
     );
 
-    if (users.isEmpty) return null;
-    final user = users.first;
-    final storedPassword = user['password'] as String? ?? '';
-    final hashedPassword = _hashPassword(password);
-    if (storedPassword == hashedPassword) return user;
-    if (storedPassword == password) {
-      await database.update(
-        usersTable,
-        {'password': hashedPassword},
-        where: 'id = ?',
-        whereArgs: [user['id']],
-      );
-      return {...user, 'password': hashedPassword};
+    if (rows.isEmpty) {
+      return null;
     }
+
+    final user = rows.first;
+
+    final storedPassword =
+        user['password']
+                ?.toString() ??
+            '';
+
+    final hashedPassword =
+        _hashPassword(password);
+
+    if (storedPassword ==
+        hashedPassword) {
+      return user;
+    }
+
+    // Dukungan password lama.
+    if (storedPassword ==
+        password) {
+      await db.update(
+        usersTable,
+        {
+          'password':
+              hashedPassword,
+        },
+        where: 'id = ?',
+        whereArgs: [
+          user['id'],
+        ],
+      );
+
+      return {
+        ...user,
+        'password':
+            hashedPassword,
+      };
+    }
+
     return null;
   }
+
+  // ============================================================
+  // RESET PASSWORD
+  // ============================================================
 
   Future<bool> resetPassword({
     required String email,
     required String newPassword,
   }) async {
-    final database = await this.database;
-    final updated = await database.update(
+    final db = await database;
+
+    final updated =
+        await db.update(
       usersTable,
-      {'password': _hashPassword(newPassword)},
-      where: 'email = ?',
-      whereArgs: [email.trim().toLowerCase()],
+      {
+        'password':
+            _hashPassword(
+          newPassword,
+        ),
+      },
+      where: 'LOWER(email) = ?',
+      whereArgs: [
+        email.trim().toLowerCase(),
+      ],
     );
+
     return updated > 0;
   }
 
-  static String _hashPassword(String password) {
-    return sha256.convert(utf8.encode(password)).toString();
-  }
+  // ============================================================
+  // UPDATE USER
+  // ============================================================
 
   Future<int> updateUser({
     required int id,
@@ -183,18 +530,31 @@ class DatabaseHelper {
     String? password,
     UserRole? role,
   }) async {
-    final database = await this.database;
-    final values = <String, dynamic>{
+    final db = await database;
+
+    final values =
+        <String, dynamic>{
       'name': name.trim(),
-      'email': email.trim().toLowerCase(),
+      'email':
+          email.trim().toLowerCase(),
       'phone': phone.trim(),
       'city': city.trim(),
     };
-    if (password != null && password.isNotEmpty) {
-      values['password'] = _hashPassword(password);
+
+    if (password != null &&
+        password.trim().isNotEmpty) {
+      values['password'] =
+          _hashPassword(
+        password.trim(),
+      );
     }
-    if (role != null) values['role'] = role.value;
-    return database.update(
+
+    if (role != null) {
+      values['role'] =
+          role.value;
+    }
+
+    return db.update(
       usersTable,
       values,
       where: 'id = ?',
@@ -202,53 +562,328 @@ class DatabaseHelper {
     );
   }
 
-  Future<int> deleteUser(int id) async {
-    final database = await this.database;
-    return database.delete(usersTable, where: 'id = ?', whereArgs: [id]);
+  // ============================================================
+  // DELETE USER
+  // ============================================================
+
+  Future<int> deleteUser(
+    int id,
+  ) async {
+    final db = await database;
+
+    return db.delete(
+      usersTable,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
+
+  // ============================================================
+  // SAVE ATTENDANCE
+  // ============================================================
 
   Future<int> saveAttendance({
     required String email,
     required String status,
     required String note,
   }) async {
-    final database = await this.database;
-    final normalizedEmail = email.trim().toLowerCase();
-    final user = await getUserByEmail(normalizedEmail);
-    final date = DateTime.now().toIso8601String().substring(0, 10);
-    return database.insert(
+    final db = await database;
+
+    final normalizedEmail =
+        email.trim().toLowerCase();
+
+    if (normalizedEmail.isEmpty) {
+      throw Exception(
+        'Email pengguna tidak ditemukan.',
+      );
+    }
+
+    final normalizedStatus =
+        status.trim().isEmpty
+            ? 'Hadir'
+            : status.trim();
+
+    final normalizedNote =
+        note.trim();
+
+    final now =
+        DateTime.now();
+
+    final today =
+        _dateOnly(now);
+
+    final createdAt =
+        now.toIso8601String();
+
+    // Waktu check-in.
+    final checkIn =
+        now.toIso8601String();
+
+    // ==========================================================
+    // CARI USER
+    // ==========================================================
+
+    final user =
+        await getUserByEmail(
+      normalizedEmail,
+    );
+
+    final dynamic userId =
+        user?['id'];
+
+    // ==========================================================
+    // CEK DATA HARI INI
+    // ==========================================================
+
+    final existing =
+        await db.query(
+      attendanceTable,
+      where:
+          'LOWER(email) = ? AND date = ?',
+      whereArgs: [
+        normalizedEmail,
+        today,
+      ],
+      orderBy: 'id DESC',
+      limit: 1,
+    );
+
+    // ==========================================================
+    // UPDATE
+    // ==========================================================
+
+    if (existing.isNotEmpty) {
+      final existingId =
+          existing.first['id'];
+
+      final existingCheckIn =
+          existing.first['check_in']
+              ?.toString();
+
+      return db.update(
+        attendanceTable,
+        {
+          'user_id': userId,
+          'email': normalizedEmail,
+          'date': today,
+          'status': normalizedStatus,
+          'note': normalizedNote,
+          'created_at': createdAt,
+
+          // Jangan kosongkan check-in lama.
+          'check_in':
+              existingCheckIn == null ||
+                      existingCheckIn.isEmpty
+                  ? checkIn
+                  : existingCheckIn,
+        },
+        where: 'id = ?',
+        whereArgs: [
+          existingId,
+        ],
+      );
+    }
+
+    // ==========================================================
+    // INSERT
+    // ==========================================================
+
+    return db.insert(
       attendanceTable,
       {
-        'user_id': user?['id'],
+        'user_id': userId,
         'email': normalizedEmail,
-        'date': date,
-        'status': status,
-        'note': note.trim(),
-        'created_at': DateTime.now().toIso8601String(),
+        'date': today,
+        'status': normalizedStatus,
+        'note': normalizedNote,
+        'created_at': createdAt,
+
+        // WAJIB DIISI
+        'check_in': checkIn,
       },
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      conflictAlgorithm:
+          ConflictAlgorithm.abort,
     );
   }
 
-  Future<List<AttendanceRecord>> getAttendanceForUser(String email) async {
-    final database = await this.database;
-    final rows = await database.query(
+  // ============================================================
+  // CEK ATTENDANCE HARI INI
+  // ============================================================
+
+  Future<bool> hasAttendanceToday(
+    String email,
+  ) async {
+    final db = await database;
+
+    final normalizedEmail =
+        email.trim().toLowerCase();
+
+    final today =
+        _dateOnly(
+      DateTime.now(),
+    );
+
+    final rows =
+        await db.query(
       attendanceTable,
-      where: 'email = ?',
-      whereArgs: [email.trim().toLowerCase()],
-      orderBy: 'date ASC',
+      where:
+          'LOWER(email) = ? AND date = ?',
+      whereArgs: [
+        normalizedEmail,
+        today,
+      ],
+      limit: 1,
     );
-    return rows.map(AttendanceRecord.fromMap).toList();
+
+    return rows.isNotEmpty;
   }
 
-  Future<List<AttendanceRecord>> getAllAttendance() async {
-    final database = await this.database;
-    final rows = await database.query(attendanceTable, orderBy: 'date DESC');
-    return rows.map(AttendanceRecord.fromMap).toList();
+  // ============================================================
+  // GET ATTENDANCE USER
+  // ============================================================
+
+  Future<List<AttendanceRecord>>
+      getAttendanceForUser(
+    String email,
+  ) async {
+    final db = await database;
+
+    final normalizedEmail =
+        email.trim().toLowerCase();
+
+    final rows =
+        await db.query(
+      attendanceTable,
+      where: 'LOWER(email) = ?',
+      whereArgs: [
+        normalizedEmail,
+      ],
+      orderBy:
+          'date DESC, id DESC',
+    );
+
+    return rows
+        .map(
+          (row) =>
+              AttendanceRecord
+                  .fromMap(row),
+        )
+        .toList();
   }
+
+  // ============================================================
+  // GET ALL ATTENDANCE
+  // ============================================================
+
+  Future<List<AttendanceRecord>>
+      getAllAttendance() async {
+    final db = await database;
+
+    final rows =
+        await db.query(
+      attendanceTable,
+      orderBy:
+          'date DESC, id DESC',
+    );
+
+    return rows
+        .map(
+          (row) =>
+              AttendanceRecord
+                  .fromMap(row),
+        )
+        .toList();
+  }
+
+  // ============================================================
+  // DELETE ATTENDANCE
+  // ============================================================
+
+  Future<int> deleteAttendance(
+    int id,
+  ) async {
+    final db = await database;
+
+    return db.delete(
+      attendanceTable,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // ============================================================
+  // HASH PASSWORD
+  // ============================================================
+
+  static String _hashPassword(
+    String password,
+  ) {
+    return sha256
+        .convert(
+          utf8.encode(password),
+        )
+        .toString();
+  }
+
+  // ============================================================
+  // DATE YYYY-MM-DD
+  // ============================================================
+
+  static String _dateOnly(
+    DateTime date,
+  ) {
+    final year =
+        date.year.toString().padLeft(
+              4,
+              '0',
+            );
+
+    final month =
+        date.month.toString().padLeft(
+              2,
+              '0',
+            );
+
+    final day =
+        date.day.toString().padLeft(
+              2,
+              '0',
+            );
+
+    return '$year-$month-$day';
+  }
+
+  // ============================================================
+  // CLOSE DATABASE
+  // ============================================================
 
   Future<void> close() async {
     await _database?.close();
+
+    _database = null;
+  }
+
+  // ============================================================
+  // RESET DATABASE
+  //
+  // JANGAN DIPANGGIL DARI main.dart
+  // ============================================================
+
+  Future<void> resetDatabase() async {
+    await close();
+
+    await initializeDatabasePlatform();
+
+    final databasePath =
+        await getDatabasesPath();
+
+    final path = join(
+      databasePath,
+      _databaseName,
+    );
+
+    await deleteDatabase(path);
+
     _database = null;
   }
 }

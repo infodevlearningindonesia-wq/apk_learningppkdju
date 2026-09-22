@@ -1,12 +1,13 @@
 class AttendanceRecord {
   const AttendanceRecord({
     this.id,
-    required this.userId,
+    this.userId,
     required this.email,
     required this.date,
     required this.status,
     required this.note,
     required this.createdAt,
+    this.checkIn,
   });
 
   final int? id;
@@ -16,16 +17,76 @@ class AttendanceRecord {
   final String status;
   final String note;
   final String createdAt;
+  final String? checkIn;
 
-  factory AttendanceRecord.fromMap(Map<String, dynamic> map) {
+  // ============================================================
+  // FROM MAP
+  // ============================================================
+
+  factory AttendanceRecord.fromMap(
+    Map<String, dynamic> map,
+  ) {
     return AttendanceRecord(
-      id: map['id'] as int?,
-      userId: map['user_id'] as int?,
-      email: map['email'] as String? ?? '',
-      date: map['date'] as String? ?? '',
-      status: map['status'] as String? ?? 'Hadir',
-      note: map['note'] as String? ?? '',
-      createdAt: map['created_at'] as String? ?? '',
+      id: _parseInt(
+        map['id'],
+      ),
+      userId: _parseInt(
+        map['user_id'],
+      ),
+      email:
+          map['email']?.toString() ??
+              '',
+      date:
+          map['date']?.toString() ??
+              '',
+      status:
+          map['status']?.toString() ??
+              'Hadir',
+      note:
+          map['note']?.toString() ??
+              '',
+      createdAt:
+          map['created_at']?.toString() ??
+              '',
+      checkIn:
+          map['check_in']?.toString(),
+    );
+  }
+
+  // ============================================================
+  // TO MAP
+  // ============================================================
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'email': email,
+      'date': date,
+      'status': status,
+      'note': note,
+      'created_at': createdAt,
+      'check_in': checkIn,
+    };
+  }
+
+  // ============================================================
+  // PARSE INT
+  // ============================================================
+
+  static int? _parseInt(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is int) {
+      return value;
+    }
+
+    return int.tryParse(
+      value.toString(),
     );
   }
 }
