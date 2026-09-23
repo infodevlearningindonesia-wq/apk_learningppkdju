@@ -9,6 +9,7 @@ class _LearningPage extends StatefulWidget {
 
 class _LearningPageState extends State<_LearningPage> {
   late Future<_LearningProgress> _progressFuture;
+  late Future<List<LearningMaterial>> _teacherMaterialsFuture;
 
   bool _isSavingAttendance = false;
 
@@ -16,6 +17,7 @@ class _LearningPageState extends State<_LearningPage> {
   void initState() {
     super.initState();
     _progressFuture = _loadProgress();
+    _teacherMaterialsFuture = DatabaseHelper.instance.getMaterials();
   }
 
   // ============================================================
@@ -121,6 +123,7 @@ class _LearningPageState extends State<_LearningPage> {
 
     setState(() {
       _progressFuture = _loadProgress();
+      _teacherMaterialsFuture = DatabaseHelper.instance.getMaterials();
     });
 
     try {
@@ -860,6 +863,34 @@ class _LearningPageState extends State<_LearningPage> {
                         ),
                       ),
                     ),
+                  );
+                },
+              ),
+              FutureBuilder<List<LearningMaterial>>(
+                future: _teacherMaterialsFuture,
+                builder: (context, snapshot) {
+                  final materials = snapshot.data ?? <LearningMaterial>[];
+                  if (materials.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                    children: materials.map((material) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.menu_book_outlined),
+                          title: Text(material.title),
+                          subtitle: Text(material.description),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CourseDetailScreen(
+                                title: material.title,
+                                content: material.content,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    )).toList(),
                   );
                 },
               ),

@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 
 import 'package:devlearning_indonesia/database/database_platform.dart';
 import 'package:devlearning_indonesia/models/attendance_record.dart';
+import 'package:devlearning_indonesia/models/learning_material.dart';
 import 'package:devlearning_indonesia/models/user.dart';
 
 class DatabaseHelper {
@@ -17,11 +18,12 @@ class DatabaseHelper {
   static const String _databaseName =
       'devlearning.db';
 
-  // Naikkan versi database agar migration dijalankan.
-  static const int _databaseVersion = 12;
+  // Naikkan versi database agar semua instance lama otomatis migrasi ke schema terbaru.
+  static const int _databaseVersion = 14;
 
   static const String usersTable = 'users';
   static const String attendanceTable = 'attendance';
+  static const String materialsTable = 'learning_materials';
 
   Database? _database;
 
@@ -51,6 +53,7 @@ class DatabaseHelper {
       onCreate: (db, version) async {
         await _createUsersTable(db);
         await _createAttendanceTable(db);
+        await _createMaterialsTable(db);
         await _createIndexes(db);
       },
 
@@ -86,6 +89,7 @@ class DatabaseHelper {
     await _ensureAttendanceColumns(
       _database!,
     );
+    await _createMaterialsTable(_database!);
 
     await _createIndexes(
       _database!,
@@ -110,6 +114,7 @@ class DatabaseHelper {
     await _ensureAttendanceTable(db);
 
     await _ensureAttendanceColumns(db);
+    await _createMaterialsTable(db);
 
     await _createIndexes(db);
   }
@@ -130,6 +135,7 @@ class DatabaseHelper {
         password TEXT NOT NULL DEFAULT '',
         city TEXT NOT NULL DEFAULT '',
         role TEXT NOT NULL DEFAULT 'peserta',
+        profile_photo TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL DEFAULT ''
       )
     ''');
@@ -198,6 +204,13 @@ class DatabaseHelper {
       await db.execute(
         "ALTER TABLE $usersTable "
         "ADD COLUMN role TEXT NOT NULL DEFAULT 'peserta'",
+      );
+    }
+
+    if (!columns.contains('profile_photo')) {
+      await db.execute(
+        "ALTER TABLE $usersTable "
+        "ADD COLUMN profile_photo TEXT NOT NULL DEFAULT ''",
       );
     }
 
@@ -334,6 +347,46 @@ class DatabaseHelper {
     ''');
   }
 
+  static Future<void> _createMaterialsTable(Database db) => db.execute('''
+    CREATE TABLE IF NOT EXISTS $materialsTable (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT ''
+    )
+  ''');
+
+  Future<List<LearningMaterial>> getMaterials() async {
+    final db = await database;
+    final rows = await db.query(materialsTable, orderBy: 'id DESC');
+    return rows
+        .map(
+          (row) => LearningMaterial.fromMap(
+            Map<String, dynamic>.from(row),
+          ),
+        )
+        .toList();
+  }
+
+  Future<int> insertMaterial(LearningMaterial material) async {
+    final db = await database;
+    return db.insert(materialsTable, material.toMap());
+  }
+
+  Future<int> updateMaterial(LearningMaterial material) async {
+    if (material.id == null) throw ArgumentError('ID materi tidak tersedia.');
+    final db = await database;
+    return db.update(materialsTable, material.toMap(),
+        where: 'id = ?', whereArgs: [material.id]);
+  }
+
+  Future<int> deleteMaterial(int id) async {
+    final db = await database;
+    return db.delete(materialsTable, where: 'id = ?', whereArgs: [id]);
+  }
+
   // ============================================================
   // INSERT USER
   // ============================================================
@@ -364,6 +417,9 @@ class DatabaseHelper {
         _hashPassword(
       user.password,
     );
+
+    values['profile_photo'] =
+        (user.profilePhoto ?? '').trim();
 
     values['created_at'] =
         DateTime.now()
@@ -528,15 +584,39 @@ class DatabaseHelper {
     required String phone,
     required String city,
     String? password,
+    String? profilePhoto,
     UserRole? role,
   }) async {
     final db = await database;
 
+    final normalizedEmail = email.trim().toLowerCase();
+    final currentUser = await db.query(
+      usersTable,
+      columns: ['id', 'email'],
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    final currentEmail = (currentUser.firstOrNull?['email'] as String? ?? '').trim().toLowerCase();
+
+    if (normalizedEmail != currentEmail) {
+      final conflict = await db.query(
+        usersTable,
+        columns: ['id'],
+        where: 'LOWER(email) = ? AND id != ?',
+        whereArgs: [normalizedEmail, id],
+        limit: 1,
+      );
+
+      if (conflict.isNotEmpty) {
+        throw const FormatException('Email sudah digunakan oleh user lain.');
+      }
+    }
+
     final values =
         <String, dynamic>{
       'name': name.trim(),
-      'email':
-          email.trim().toLowerCase(),
+      'email': normalizedEmail,
       'phone': phone.trim(),
       'city': city.trim(),
     };
@@ -547,6 +627,11 @@ class DatabaseHelper {
           _hashPassword(
         password.trim(),
       );
+    }
+
+    if (profilePhoto != null) {
+      values['profile_photo'] =
+          profilePhoto.trim();
     }
 
     if (role != null) {

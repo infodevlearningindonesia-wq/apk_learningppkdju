@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:devlearning_indonesia/auth/register_screen.dart';
+import 'package:devlearning_indonesia/auth/register/register_screen.dart';
 import 'package:devlearning_indonesia/database/database_helper.dart';
 import 'package:devlearning_indonesia/models/user.dart';
 import 'package:sqflite/sqflite.dart';
@@ -207,7 +207,9 @@ class _RegisteredUsersScreenState extends State<RegisteredUsersScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const RegisterScreen()),
+          MaterialPageRoute(
+            builder: (_) => const RegisterScreen(isAdminCreate: true),
+          ),
         ).then((_) => _reload()),
         icon: const Icon(Icons.person_add_alt_1_rounded),
         label: const Text('Tambah'),

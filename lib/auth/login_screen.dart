@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:devlearning_indonesia/about/about_screen.dart';
 import 'package:devlearning_indonesia/auth/role_home_screen.dart';
 import 'package:devlearning_indonesia/auth/reset_password_screen.dart';
-import 'package:devlearning_indonesia/auth/registered_users_screen.dart';
-import 'package:devlearning_indonesia/auth/register_screen.dart';
+import 'package:devlearning_indonesia/auth/register/register_screen.dart';
 import 'package:devlearning_indonesia/services/preference_handler.dart';
 import 'package:devlearning_indonesia/database/database_helper.dart';
 import 'package:devlearning_indonesia/services/validation.dart';
@@ -46,14 +45,6 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: AppBar(
         actions: [
-          TextButton.icon(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const RegisteredUsersScreen()),
-            ),
-            icon: const Icon(Icons.list_alt_rounded),
-            label: const Text('Akun terdaftar'),
-          ),
           IconButton(
             tooltip: 'Tentang aplikasi',
             onPressed: () => Navigator.push(

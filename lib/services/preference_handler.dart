@@ -254,6 +254,33 @@ class PreferenceHandler {
   // ============================================================
 
   static Future<void> clearSession() async {
+    final email = _prefs.getString(_userEmailKey);
+    final currentAccountEmail = email == null || email.trim().isEmpty
+        ? 'guest'
+        : email.trim().toLowerCase();
+
+    final keysToClear = <String>{
+      _learningNotificationsStorageKey(),
+      _attendanceKey(),
+      'learning_notifications_guest',
+      'attendance_guest',
+      'attendance_${currentAccountEmail}',
+      'learning_notifications_${currentAccountEmail}',
+    };
+
+    for (final key in _prefs.getKeys()) {
+      if (key.startsWith('${_learningNotificationsKey}_') ||
+          key.startsWith('${_attendanceRecordsKey}_') ||
+          key == 'attendance_guest' ||
+          key == 'learning_notifications_guest') {
+        keysToClear.add(key);
+      }
+    }
+
+    for (final key in keysToClear) {
+      await _prefs.remove(key);
+    }
+
     await _prefs.remove(_isLoginKey);
     await _prefs.remove(_userEmailKey);
   }

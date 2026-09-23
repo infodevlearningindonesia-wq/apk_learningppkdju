@@ -1,6 +1,6 @@
-import 'package:devlearning_indonesia/splash/splash_screen.dart';
 import 'package:devlearning_indonesia/database/database_platform.dart';
 import 'package:devlearning_indonesia/services/preference_handler.dart';
+import 'package:devlearning_indonesia/splash/splash_screen.dart';
 import 'package:devlearning_indonesia/views/post_list_views.dart';
 import 'package:flutter/material.dart';
 

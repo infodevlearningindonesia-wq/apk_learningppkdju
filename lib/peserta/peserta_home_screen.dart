@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:devlearning_indonesia/home/home_screen.dart';
+part of devlearning_roles;
 
 class PesertaHomeScreen extends StatelessWidget {
   const PesertaHomeScreen({super.key});

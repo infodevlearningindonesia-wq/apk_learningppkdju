@@ -7,7 +7,10 @@ import 'package:devlearning_indonesia/services/validation.dart';
 import 'package:sqflite/sqflite.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({super.key, this.isAdminCreate = false});
+
+  /// Hanya panel admin yang boleh membuat akun dengan role selain peserta.
+  final bool isAdminCreate;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -140,11 +143,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<UserRole>(
-                initialValue: _selectedRole,
-                decoration: const InputDecoration(
+                value: widget.isAdminCreate ? _selectedRole : UserRole.peserta,
+                decoration: InputDecoration(
                   labelText: 'Role akun',
-                  prefixIcon: Icon(Icons.badge_outlined),
-                  border: OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.badge_outlined),
+                  border: const OutlineInputBorder(),
+                  helperText: widget.isAdminCreate
+                      ? null
+                      : 'Role default untuk user baru adalah Peserta',
                 ),
                 items: UserRole.values
                     .map(
@@ -154,9 +160,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     )
                     .toList(),
-                onChanged: (role) {
-                  if (role != null) setState(() => _selectedRole = role);
-                },
+                onChanged: widget.isAdminCreate
+                    ? (role) {
+                        if (role != null) setState(() => _selectedRole = role);
+                      }
+                    : null,
               ),
               const SizedBox(height: 20),
               SizedBox(
@@ -239,20 +247,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
           phone: phone,
           password: password,
           city: city,
-          role: _selectedRole,
+          role: widget.isAdminCreate ? _selectedRole : UserRole.peserta,
         ),
       );
       if (!mounted) return;
 
-      await _showRegistrationDetail(name: name, city: city);
-      if (!mounted) return;
-
-      await Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ConfirmationScreen(name: name, city: city),
-        ),
-      );
+      if (widget.isAdminCreate) {
+        Navigator.pop(context, true);
+      } else {
+        await _showRegistrationDetail(name: name, city: city);
+        if (!mounted) return;
+        await Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ConfirmationScreen(name: name, city: city),
+          ),
+        );
+      }
     } on DatabaseException catch (error) {
       if (mounted) {
         final errorMessage = error.toString().toUpperCase();

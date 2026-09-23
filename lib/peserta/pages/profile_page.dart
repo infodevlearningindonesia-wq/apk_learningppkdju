@@ -161,6 +161,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   late final TextEditingController _city;
 
+  final _picker = ImagePicker();
+  File? _selectedImage;
   bool _isSaving = false;
 
   @override
@@ -182,6 +184,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _city = TextEditingController(
       text: widget.profile['city'] as String? ?? '',
     );
+
+    final imagePath = widget.profile['profile_photo'] as String? ?? '';
+    if (imagePath.isNotEmpty) {
+      _selectedImage = File(imagePath);
+    }
   }
 
   @override
@@ -197,6 +204,19 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     super.dispose();
   }
 
+  Future<void> _pickImage() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      _selectedImage = File(picked.path);
+    });
+  }
+
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -205,28 +225,33 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     });
 
     try {
+      final profilePhoto = _selectedImage?.path ??
+          (widget.profile['profile_photo'] as String? ?? '');
+      final safeEmail = widget.profile['email'] as String? ?? _email.text;
+
       await DatabaseHelper.instance.updateUser(
         id: widget.profile['id'] as int,
-
         name: _name.text,
-
-        email: _email.text,
-
+        email: safeEmail,
         phone: _phone.text,
-
         city: _city.text,
+        profilePhoto: profilePhoto,
       );
 
-      await PreferenceHandler.setUserEmail(_email.text);
+      await PreferenceHandler.setUserEmail(safeEmail);
 
       if (mounted) {
         Navigator.pop(context, true);
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Email sudah digunakan atau profil gagal disimpan.'),
+          SnackBar(
+            content: Text(
+              error is FormatException
+                  ? error.message
+                  : 'Email sudah digunakan atau profil gagal disimpan.',
+            ),
           ),
         );
       }
@@ -251,18 +276,60 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           padding: const EdgeInsets.all(20),
 
           children: [
+            Center(
+              child: Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 46,
+                    backgroundColor: const Color(0xFFE6F5DA),
+                    backgroundImage: _selectedImage != null
+                        ? FileImage(_selectedImage!)
+                        : null,
+                    child: _selectedImage == null
+                        ? const Icon(
+                            Icons.person_rounded,
+                            size: 50,
+                            color: Color(0xFF3F7D27),
+                          )
+                        : null,
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: const Color(0xFF3F7D27),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(
+                          Icons.camera_alt_rounded,
+                          size: 18,
+                          color: Colors.white,
+                        ),
+                        onPressed: _pickImage,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
             _field(_name, 'Nama', Icons.person_outline_rounded),
 
             const SizedBox(height: 14),
 
-            _field(
-              _email,
-              'Email',
-              Icons.email_outlined,
+            TextFormField(
+              controller: _email,
+              readOnly: true,
               keyboardType: TextInputType.emailAddress,
-              validator: (value) => value == null || !value.contains('@')
-                  ? 'Masukkan email yang valid'
-                  : null,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                helperText: 'Email tidak dapat diubah',
+                prefixIcon: Icon(Icons.email_outlined),
+                border: OutlineInputBorder(),
+              ),
             ),
 
             const SizedBox(height: 14),

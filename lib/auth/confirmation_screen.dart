@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:devlearning_indonesia/auth/registered_users_screen.dart';
+import 'package:devlearning_indonesia/auth/login_screen.dart';
 
 class ConfirmationScreen extends StatelessWidget {
   const ConfirmationScreen({
@@ -52,7 +52,7 @@ class ConfirmationScreen extends StatelessWidget {
                   onPressed: () => Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const RegisteredUsersScreen(),
+                      builder: (_) => const LoginScreen(),
                     ),
                   ),
                   child: const Text('Oke'),

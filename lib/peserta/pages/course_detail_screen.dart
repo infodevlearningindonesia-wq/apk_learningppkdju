@@ -1,9 +1,10 @@
 part of '../home_screen.dart';
 
 class CourseDetailScreen extends StatefulWidget {
-  const CourseDetailScreen({super.key, required this.title});
+  const CourseDetailScreen({super.key, required this.title, this.content});
 
   final String title;
+  final String? content;
 
   @override
   State<CourseDetailScreen> createState() => _CourseDetailScreenState();
@@ -20,7 +21,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   void initState() {
     super.initState();
 
-    _lessons = _materials[widget.title] ?? _defaultMaterials;
+    _lessons = widget.content?.trim().isNotEmpty == true
+        ? [_Lesson('materi-${widget.title}', widget.title, widget.content!)]
+        : _materials[widget.title] ?? _defaultMaterials;
 
     _loadProgress();
   }

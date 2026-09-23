@@ -32,6 +32,7 @@ class User {
     required this.city,
     this.role = UserRole.peserta,
     this.createdAt,
+    this.profilePhoto,
   });
 
   final int? id;
@@ -42,6 +43,7 @@ class User {
   final String city;
   final UserRole role;
   final String? createdAt;
+  final String? profilePhoto;
 
   Map<String, dynamic> toMap() {
     return {
@@ -52,6 +54,7 @@ class User {
       'password': password,
       'city': city,
       'role': role.value,
+      'profile_photo': profilePhoto ?? '',
       'created_at': createdAt ?? DateTime.now().toIso8601String(),
     };
   }
@@ -66,6 +69,7 @@ class User {
       city: map['city'] as String? ?? '',
       role: UserRoleX.fromValue(map['role'] as String?),
       createdAt: map['created_at'] as String?,
+      profilePhoto: map['profile_photo'] as String? ?? '',
     );
   }
 }

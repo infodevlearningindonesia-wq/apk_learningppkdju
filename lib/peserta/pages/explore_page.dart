@@ -9,6 +9,13 @@ class _ExplorePage extends StatefulWidget {
 
 class _ExplorePageState extends State<_ExplorePage> {
   final _searchController = TextEditingController();
+  late Future<List<LearningMaterial>> _teacherMaterials;
+
+  @override
+  void initState() {
+    super.initState();
+    _teacherMaterials = DatabaseHelper.instance.getMaterials();
+  }
 
   @override
   void dispose() {
@@ -18,7 +25,8 @@ class _ExplorePageState extends State<_ExplorePage> {
 
   Future<void> reload() async {
     _searchController.clear();
-    setState(() {});
+    setState(() => _teacherMaterials = DatabaseHelper.instance.getMaterials());
+    await _teacherMaterials;
   }
 
   @override
@@ -154,6 +162,39 @@ class _ExplorePageState extends State<_ExplorePage> {
           subtitle: '8 materi Â· Dasar',
           color: const Color(0xFFFFE8C9),
           onTap: () => _openCourse(context, 'Logika dan Algoritma'),
+        ),
+
+        if (!isSearching) const SizedBox(height: 28),
+
+        if (!isSearching) const _SectionTitle(title: 'Materi dari pengajar'),
+
+        if (!isSearching) const SizedBox(height: 12),
+
+        if (!isSearching) FutureBuilder<List<LearningMaterial>>(
+          future: _teacherMaterials,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final materials = snapshot.data ?? <LearningMaterial>[];
+            if (materials.isEmpty) {
+              return const Text('Belum ada materi yang dipublikasikan pengajar.');
+            }
+            return Column(
+              children: materials.map((material) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _CourseTile(
+                  icon: Icons.menu_book_outlined,
+                  title: material.title,
+                  subtitle: material.description,
+                  color: const Color(0xFFE6F5DA),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => CourseDetailScreen(title: material.title, content: material.content),
+                  )),
+                ),
+              )).toList(),
+            );
+          },
         ),
       ],
     );

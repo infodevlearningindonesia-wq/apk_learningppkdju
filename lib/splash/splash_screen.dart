@@ -23,7 +23,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final destination = PreferenceHandler.isLogin
       ? const RoleHomeScreen()
-        : const LoginScreen();
+      : const LoginScreen();
 
     Navigator.pushReplacement(
       context,
