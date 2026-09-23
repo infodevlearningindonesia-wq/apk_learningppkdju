@@ -220,7 +220,7 @@ class DevLearningApp extends StatelessWidget {
         ),
       ),
 
-      home: const SplashScreen(),
+      home: const PostListView(),
     );
   }
 }

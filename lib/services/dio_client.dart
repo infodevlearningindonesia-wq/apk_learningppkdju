@@ -3,7 +3,7 @@ import 'package:dio/dio.dart';
 Dio createDioClient() {
   final dio = Dio(
     BaseOptions(
-      baseUrl: 'https://jsonplaceholder.typicode.com',
+      baseUrl: 'https://api.potterdb.com/v1/characters?page[size]=10&page[number]=1',
       connectTimeout: const Duration(
         seconds: 10,
       ), // Timeout saat mencoba menghubungkan ke server
